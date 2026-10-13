@@ -63,7 +63,7 @@ flowchart LR
   S --> AL[gravity + metric scale] --> D[monocular depth<br/>fitted to SfM per frame]
   D --> T[TSDF grid A, TSDF grid B]
   T --> R[render both grids<br/>from every pose]
-  R --> C[evidence -> clusters<br/>-> added / removed / moved] --> L[VLM label] --> O[reports, Rerun, video]
+  R --> C[evidence -> clusters<br/>-> added / removed / moved] --> N[route check] --> L[VLM label] --> O[reports, Rerun, video]
 ```
 
 1. **One coordinate frame by construction.** Frames from both videos go into a single
@@ -84,7 +84,11 @@ flowchart LR
 5. **Objects.** Evidence is clustered with DBSCAN. Thin sheets lying on a static surface,
    which is how depth error between the recordings shows up, are rejected. A removed and an
    added cluster with similar size and colours become one move with a displacement.
-6. **Labels.** The best unoccluded before/after views are cropped and sent to Qwen2-VL-2B,
+6. **Route check.** The path walked in A is replayed on an occupancy grid of B (robot
+   radius 0.25 m). Route sections that are blocked only in B are attributed to the detected
+   change in the way, and A* plans a new route. This only runs when the floor is in view;
+   in the bedroom pairs the reference plane is the mattress, so it is skipped there.
+7. **Labels.** The best unoccluded before/after views are cropped and sent to Qwen2-VL-2B,
    which must return JSON matching a schema. The model is given no numbers; every size,
    position and displacement in the descriptions comes from the geometry.
 
@@ -132,7 +136,7 @@ matching. Outputs in `out/<name>/`:
 | `report.md`, `report.json` | every change: action, label, description, 3-D box, centroid, displacement, confidence, supporting views |
 | `changes.rrd` | Rerun recording (`rerun out/<name>/changes.rrd`): both clouds, cameras, change boxes, unknown evidence in grey |
 | `side_by_side.mp4` | B frames next to the closest A frame, change boxes projected in |
-| `floor_map.png` | top-down map of obstacles, changes and both camera paths |
+| `floor_map.png` | top-down map of obstacles, changes, both camera paths and, when the floor is in view, blocked route sections and the replanned route |
 
 Recording tips that matter: walk sideways rather than turning on the spot, keep textured
 furniture in view, avoid long stretches of blank wall or glossy floor, and keep screens off.
@@ -151,15 +155,16 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 43 tests
+python -m pytest        # 47 tests
 python -m ruff check .
 ```
 
 They cover the pose and pixel conventions (including that Open3D's integration uses
 COLMAP's pixel centres), depth fitting, fusion helpers, a synthetic scene with removed,
 added, moved, occluded and never-observed objects, the ablation showing that the free-space
-check is what suppresses the occlusion false positive, the VLM output validation, and the
-annotation triangulation.
+check is what suppresses the occlusion false positive, the VLM output validation, the
+annotation triangulation, and the route check (a blocked corridor is blamed on the added box
+and replanned around it).
 
 ## Limitations
 
@@ -179,7 +184,7 @@ annotation triangulation.
 ```
 run.py, config.yaml     entry point and every tunable
 src/                    frames, sfm, alignment, depth(_align), fusion, diff, cluster,
-                        baseline, semantics, viz, utils/geometry
+                        navigation, baseline, semantics, viz, utils/geometry
 tests/                  unit tests, synthetic renderer and change test, synthetic videos
 eval/                   annotate.py (ground truth), run_eval.py, results/
 examples/               reports from the real pairs

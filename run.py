@@ -3,8 +3,8 @@
     python run.py --video_a A.mp4 --video_b B.mp4 --out out/<name>
     python run.py --out out/<name> --stages diff,cluster,semantics,viz
 
-Stages run in order: frames, sfm, align, depth, fusion, baseline, diff, cluster, semantics,
-viz. Each stage only reads files written by earlier stages in --out, so any tail of the
+Stages run in order: frames, sfm, align, depth, fusion, baseline, diff, cluster, nav,
+semantics, viz. Each stage only reads files written by earlier stages in --out, so any tail of the
 pipeline can be re-run on its own.
 """
 
@@ -16,7 +16,19 @@ from pathlib import Path
 
 import yaml
 
-STAGES = ["frames", "sfm", "align", "depth", "fusion", "baseline", "diff", "cluster", "semantics", "viz"]
+STAGES = [
+    "frames",
+    "sfm",
+    "align",
+    "depth",
+    "fusion",
+    "baseline",
+    "diff",
+    "cluster",
+    "nav",
+    "semantics",
+    "viz",
+]
 REPO = Path(__file__).resolve().parent
 
 
@@ -115,6 +127,12 @@ def main() -> None:
         from src.cluster import cluster_changes
 
         cluster_changes(out_dir, config["cluster"], config["moved"], config["diff"]["evidence_voxel_size"])
+
+    if "nav" in stages:
+        banner("nav", "route check on the changed room")
+        from src.navigation import plan_routes
+
+        plan_routes(out_dir, config["navigation"], config["viz"]["obstacle_z_band"])
 
     if "semantics" in stages:
         banner("semantics", "VLM labels")

@@ -481,3 +481,26 @@ differs between A and B. Downstream results for this pair are not meaningful.
   0.8; baseline 9).
 - README rewritten around the real results; `examples/` holds the reports of the bottle,
   static and keyboard pairs plus one side-by-side frame and the bottle floor map.
+
+## Route check and look-next idea (2026-10-13)
+
+- Looked at a "where to look next" suggestion built from the unknown evidence. On the bottle
+  pair the largest unknown region (312 of 432 voxels) is blank white wall above the bed
+  (checked by projecting it into B_0053 / B_0033); static and keyboard pairs have no
+  unknown cluster at all. A second look would not resolve textureless wall for monocular
+  depth, so the idea was dropped.
+- New `nav` stage (`src/navigation.py`): replays A's camera path on B's occupancy grid
+  (points in `viz.obstacle_z_band`, cells 5 cm, inflated by a 0.25 m robot radius), blames
+  newly blocked route cells on added/moved-after boxes, and replans with A*. Cells that
+  were already blocked in A are not counted (handheld paths pass close to furniture: 136
+  such cells on the synthetic room).
+- Skipped unless the floor was found and the median camera height is 1.1-1.9 m. All three
+  bedroom pairs are skipped (camera 0.94-1.01 above z = 0, which is the mattress or a
+  fallback plane), as they should be. Synthetic room: route 9.15 m, 0 cells newly blocked,
+  which matches the layout (no change sits on A's path). Tests: `tests/test_navigation.py`
+  (blocked corridor is blamed on the added box and replanned with >= 0.25 m clearance;
+  unchanged room keeps the route). `pytest` -> 47 passed.
+- Found stale labels in `out/synth`: `semantics/labels.json` predated the
+  `min_frontal_area` change, so ids pointed at different changes (#2 "removed" carried the
+  added cube's text). Re-ran semantics; `viz` now drops any label whose action differs
+  from its change.

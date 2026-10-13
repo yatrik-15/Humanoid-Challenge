@@ -108,6 +108,14 @@ moved:
 baseline:
   nn_threshold: 0.05              # a point is "changed" if the other cloud has nothing closer
 
+navigation:                       # replay the route walked in A on B's occupancy grid
+  cell_size: 0.05
+  robot_radius: 0.25              # occupied cells are inflated by this
+  min_points_per_cell: 3          # fused points in the obstacle band to call a cell occupied
+  min_blocked_cells: 3            # replan when at least this many route cells became blocked
+  camera_height_range: [1.1, 1.9] # skip unless cameras are this high above z = 0, i.e. the
+                                  #   plane is the floor and not a bed or table
+
 semantics:
   backend: "local"                # "local" (Qwen2-VL) | "none" (geometry-only descriptions)
   local_model: "Qwen/Qwen2-VL-2B-Instruct"

@@ -31,6 +31,9 @@ def build_report(out_dir: Path) -> dict:
     changes = json.load(open(out_dir / "cluster" / "changes.json"))
     labels_path = out_dir / "semantics" / "labels.json"
     labels = {l["id"]: l for l in json.load(open(labels_path))} if labels_path.exists() else {}
+    # Labels from an older clustering run would attach to the wrong change; ignore those.
+    by_id = {ch["id"]: ch["action"] for ch in changes}
+    labels = {i: l for i, l in labels.items() if by_id.get(i) == l.get("action")}
     align = json.load(open(out_dir / "align" / "alignment.json"))
     diff = json.load(open(out_dir / "diff" / "diff_report.json"))
     items = []
@@ -74,7 +77,17 @@ def build_report(out_dir: Path) -> dict:
         "counts": {a: sum(c["action"] == a for c in items) for a in ACTION_ORDER},
         "unknown_evidence_voxels": diff["unknown_voxels"],
         "changes": items,
+        "navigation": _route_summary(out_dir),
     }
+
+
+def _route_summary(out_dir: Path) -> dict | None:
+    """nav/route.json without the polylines, or None when the nav stage was skipped."""
+    path = out_dir / "nav" / "route.json"
+    if not path.exists():
+        return None
+    route = json.load(open(path))
+    return {k: v for k, v in route.items() if k not in ("route", "blocked_points", "replanned")}
 
 
 def write_markdown(report: dict, path: Path) -> None:
@@ -332,6 +345,15 @@ def write_floor_map(out_dir: Path, report: dict, cfg: dict, path: Path) -> None:
                 xytext=c["centroid_before"][:2],
                 arrowprops=dict(arrowstyle="->", color=np.array(_color(cfg, "moved")) / 255, lw=2),
             )
+    route_path = out_dir / "nav" / "route.json"
+    if route_path.exists():
+        route = json.load(open(route_path))
+        blocked = np.array(route["blocked_points"]).reshape(-1, 2)
+        if len(blocked):
+            ax.plot(blocked[:, 0], blocked[:, 1], "x", color="red", ms=5, label="route A, blocked now")
+        if route.get("replanned"):
+            p = np.array(route["replanned"])
+            ax.plot(p[:, 0], p[:, 1], "--", color="tab:green", lw=2, label="new route (A*)")
     ax.set_aspect("equal")
     ax.set_xlabel(f"x ({report['units']})")
     ax.set_ylabel(f"y ({report['units']})")
