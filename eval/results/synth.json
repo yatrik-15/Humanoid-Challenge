@@ -1,0 +1,76 @@
+{
+  "scene": "synth",
+  "out_dir": "out\\synth",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "gt_world mapped by Umeyama on camera centres",
+    "num_cameras": 60,
+    "scale": 1.016903969333803,
+    "camera_residual_mean": 0.001440473878802089,
+    "camera_residual_max": 0.002849535567306297
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 4,
+      "num_gt": 3,
+      "change_TP": 3,
+      "change_precision": 0.75,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.083,
+      "region_pred": 5,
+      "region_gt": 4,
+      "region_TP": 4,
+      "region_precision": 0.8,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.064,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 2,
+          "dist": 0.041
+        },
+        {
+          "pred": 3,
+          "gt": 1,
+          "dist": 0.099
+        },
+        {
+          "pred": 1,
+          "gt": 0,
+          "dist": 0.109
+        }
+      ]
+    },
+    "naive NN baseline": {
+      "num_pred": 17,
+      "num_gt": 3,
+      "change_TP": 3,
+      "change_precision": 0.176,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.085,
+      "region_pred": 18,
+      "region_gt": 4,
+      "region_TP": 4,
+      "region_precision": 0.222,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.066,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 2,
+          "dist": 0.045
+        },
+        {
+          "pred": 5,
+          "gt": 0,
+          "dist": 0.104
+        },
+        {
+          "pred": 15,
+          "gt": 1,
+          "dist": 0.106
+        }
+      ]
+    }
+  }
+}
