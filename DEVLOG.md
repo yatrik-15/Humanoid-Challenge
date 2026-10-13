@@ -504,3 +504,39 @@ differs between A and B. Downstream results for this pair are not meaningful.
   `min_frontal_area` change, so ids pointed at different changes (#2 "removed" carried the
   added cube's text). Re-ran semantics; `viz` now drops any label whose action differs
   from its change.
+
+## Walkway pair: bag moved, ball moved, bottle added (2026-10-13)
+
+`data/Multi_{A,B}.mp4`, about 35 s each, phone pitched about 35 deg down to keep the floor in
+view. Glossy white tiles, black window at night. Logs `out/logs/multi_run{,2,3}.log`.
+
+- SfM: 138/138 registered (73 A, 65 B), 1.41 px, 35559 points.
+- First run: floor not found. Cause: `estimate_camera_up` used the mean image-up vector,
+  which is off by the pitch angle when the phone looks down; the floor normal was 34.5 deg
+  from it (limit 30). Fix: up is refined as the direction most orthogonal to all camera
+  x-axes (handheld phones hardly roll). Change vs image-up on the pairs: walkway 29.8 deg,
+  bottle 6.5, static 10.2, keyboard 9.7, synthetic 6.0. Test with a 35 deg pitched camera.
+- The floor plane then held 3.9 % of sparse points (glossy tiles give few points among a lot
+  of furniture; about 1400 points absolute), camera 1.30 m above it, point heights peaking
+  at 0-0.1 m (floor) and 0.6 m (bed). `floor_min_inliers_ratio` 0.05 -> 0.03; static and
+  keyboard pairs have no candidate plane at all, bottle has 46.6 %.
+- Second run: bag moved 1.08 m (correct), 6 more changes. The largest (1.6 x 1.0 m "added")
+  was the far floor: fused floor height along the walkway at y 1.4-2.6 m was -0.08..+0.09 in
+  A and +0.11..+0.14 in B (monocular depth on reflective tiles). Fix: `floor_snap` puts
+  pixels within [-0.4, 0.2] m of z = 0 with normals within 30 deg of vertical on the plane,
+  only when `floor_is_reliable` (floor found, cameras 1.1-1.9 m above it). Checked visually:
+  the mask covers the floor and none of bag, ball, vase, bottle or bed. 36-39 % of pixels
+  snapped. Test: a floor rendered 8 % too deep is restored, an upright face is untouched.
+- Third run: 1 moved (bag, 1.10 m), 1 removed + 3 added at the window end (vase, window
+  frame), ball not detected, bottle not reported (A never saw that spot; no evidence of any
+  kind there). Route check: A's route (3.11 m) blocked by the bag (change 0); no way
+  around within the observed area.
+- Why the window end fails: rendered A and B from the same poses disagree beyond tau on
+  10-20 % of pixels at 1.5-3 m even with the bag's footprints excluded, against 99th
+  percentile relative difference 1.6 % on the static pair. B never got closer than about
+  2.5 m to the window (the bag was in the way). The ball (about 15 cm) is the size of this
+  error, and the floor prior also flattens part of it. Not tuned further.
+- A grazing-angle depth filter was tried and dropped: it flags real side-on surfaces
+  (wardrobe and bed sides), not the floor error.
+- Re-ran align..viz on bottle, static and keyboard with the new up estimate: bottle 1 added
+  ("cup"), baseline 9; static 0, baseline 4; keyboard 0, baseline 1. Unchanged.

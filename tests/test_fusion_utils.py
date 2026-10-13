@@ -88,3 +88,32 @@ def test_integrate_uses_colmap_pixel_centres():
     err = median_error(0.0)
     assert err < 0.005
     assert err < 0.5 * min(median_error(-0.5), median_error(0.5))
+
+
+def test_snap_to_floor_flattens_floor_but_keeps_upright_object():
+    """A floor rendered 8 % too deep is put back on z = 0; a box face standing on it is not."""
+    from src.fusion import snap_to_floor
+    from src.utils.geometry import look_at_T_cw
+
+    H, W = 120, 160
+    K = np.array([[150.0, 0, W / 2], [0, 150.0, H / 2], [0, 0, 1]])
+    eye = np.array([0.0, 0.0, 1.3])
+    T_cw = look_at_T_cw(eye, np.array([0.0, 2.0, 0.0]), np.array([0.0, 0.0, 1.0]))
+    R_wc = T_cw[:3, :3].T
+    v, u = np.mgrid[0:H, 0:W]
+    rays_w = np.stack([(u + 0.5 - W / 2) / 150.0, (v + 0.5 - H / 2) / 150.0, np.ones((H, W))], -1) @ R_wc.T
+    t_floor = -eye[2] / rays_w[..., 2]
+    t_wall = 1.5 / rays_w[..., 1]  # vertical face at y = 1.5, 0.4 m tall
+    wall_z = eye[2] + t_wall * rays_w[..., 2]
+    on_wall = (t_wall > 0) & (wall_z > 0) & (wall_z < 0.4) & ((t_wall < t_floor) | (t_floor <= 0))
+    depth = np.where(t_floor > 0, t_floor * 1.08, 0.0)
+    depth[on_wall] = t_wall[on_wall]
+
+    out, mask = snap_to_floor(depth, K, T_cw, band=(-0.4, 0.2), max_normal_deg=30.0, step=2)
+    floor_px = (t_floor > 0) & ~on_wall
+    inner = np.zeros_like(mask)
+    inner[4:-4, 4:-4] = True
+    snapped_floor = mask & floor_px & inner
+    assert snapped_floor.sum() > 0.8 * (floor_px & inner).sum()
+    np.testing.assert_allclose(out[snapped_floor], t_floor[snapped_floor], rtol=1e-5)
+    assert not mask[on_wall & inner].any()

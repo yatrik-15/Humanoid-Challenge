@@ -102,7 +102,7 @@ def main() -> None:
         banner("fusion", "TSDF fusion of A and B")
         from src.fusion import fuse_depths
 
-        fuse_depths(out_dir, config["fusion"])
+        fuse_depths(out_dir, config["fusion"], config["alignment"]["floor_camera_height_range"])
 
     if "baseline" in stages:
         banner("baseline", "naive nearest-neighbour baseline")
@@ -132,7 +132,12 @@ def main() -> None:
         banner("nav", "route check on the changed room")
         from src.navigation import plan_routes
 
-        plan_routes(out_dir, config["navigation"], config["viz"]["obstacle_z_band"])
+        plan_routes(
+            out_dir,
+            config["navigation"],
+            config["viz"]["obstacle_z_band"],
+            config["alignment"]["floor_camera_height_range"],
+        )
 
     if "semantics" in stages:
         banner("semantics", "VLM labels")

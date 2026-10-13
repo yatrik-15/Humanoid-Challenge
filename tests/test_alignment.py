@@ -110,3 +110,27 @@ def test_no_floor_falls_back_to_normalized():
 def test_camera_up_estimate():
     _, T_cws = synthetic_room(np.random.default_rng(2))
     np.testing.assert_allclose(estimate_camera_up(T_cws), [0, 0, 1], atol=0.35)
+
+
+def test_camera_up_with_phone_pitched_down():
+    """Walking with the phone tilted 35 deg down: image-up is off by 35 deg, the refined
+    estimate (x-axes stay horizontal) is not."""
+    from src.utils.geometry import look_at_T_cw
+
+    rng = np.random.default_rng(3)
+    T_cws = []
+    for _ in range(40):
+        eye = np.r_[rng.uniform(-1, 1, 2), 1.3]
+        yaw = rng.uniform(-0.6, 0.6)
+        d = np.r_[
+            np.cos(yaw) * np.cos(np.deg2rad(35)),
+            np.sin(yaw) * np.cos(np.deg2rad(35)),
+            -np.sin(np.deg2rad(35)),
+        ]
+        T_cws.append(look_at_T_cw(eye, eye + d, np.array([0.0, 0.0, 1.0])))
+    T_cws = np.array(T_cws)
+    image_up = -T_cws[:, 1, :3].mean(axis=0)
+    image_up /= np.linalg.norm(image_up)
+    assert np.rad2deg(np.arccos(image_up[2])) > 30
+    up = estimate_camera_up(T_cws)
+    assert np.rad2deg(np.arccos(np.clip(up[2], -1, 1))) < 1.0

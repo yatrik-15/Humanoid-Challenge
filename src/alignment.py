@@ -42,13 +42,32 @@ class FloorFit:
 
 
 def estimate_camera_up(T_cws: np.ndarray) -> np.ndarray:
-    """Mean camera 'up' direction in world coordinates (unit vector).
+    """World 'up' direction from camera orientations (unit vector).
 
-    For an OpenCV camera, image-up is the -y axis; in world that is -R_wc[:, 1] = -R_cw[1, :].
+    The mean image-up direction (-y of an OpenCV camera, -R_cw[1, :] in world) is only right
+    when the phone is held level; filming the floor with the phone pitched down tilts it by
+    the pitch angle (about 30 deg on the walkway pair). Handheld phones hardly roll, so the
+    image x-axes are close to horizontal: up is refined as the direction most orthogonal to
+    all of them, signed by the image-up mean. If the x-axes do not pin that direction down
+    (the two smallest singular values are similar, e.g. a camera that only rolls), the
+    image-up mean is returned.
     """
     ups = np.array([-T[1, :3] for T in T_cws])
     up = ups.mean(axis=0)
-    return up / np.linalg.norm(up)
+    up /= np.linalg.norm(up)
+    _, sv, vt = np.linalg.svd(np.array([T[0, :3] for T in T_cws]))
+    if sv[2] > 0.5 * sv[1]:
+        return up
+    refined = vt[2] if np.dot(vt[2], up) > 0 else -vt[2]
+    return refined
+
+
+def floor_is_reliable(alignment: dict, camera_height_range) -> bool:
+    """True when z = 0 is very likely the floor: a plane was found and the cameras sit at a
+    handheld height above it. In bedroom recordings without floor in view, the plane is the
+    mattress and the cameras are only about 1 m above it."""
+    lo, hi = camera_height_range
+    return bool(alignment["floor_found"]) and lo <= alignment["camera_height_median"] <= hi
 
 
 def scene_scale(points: np.ndarray, cam_centers: np.ndarray) -> float:

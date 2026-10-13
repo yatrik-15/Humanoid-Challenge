@@ -104,6 +104,46 @@ def erode_depth_edges(depth: np.ndarray, rel_jump: float, erode_px: int) -> np.n
     return out
 
 
+def snap_to_floor(
+    depth: np.ndarray, K: np.ndarray, T_cw: np.ndarray, band, max_normal_deg: float, step: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Put near-floor, upward-facing pixels exactly on the z = 0 plane.
+
+    A pixel is snapped when its back-projected point lies within `band` (z_min, z_max) of
+    the plane, its surface normal (finite differences over `step` pixels) is within
+    `max_normal_deg` of vertical, and its ray actually hits the plane. Its depth becomes
+    the ray/plane intersection. Upright surfaces (object sides, furniture) keep their depth.
+    Returns (new depth, snapped mask).
+    """
+    H, W = depth.shape
+    T_wc = invert_pose(T_cw)
+    R, c = T_wc[:3, :3], T_wc[:3, 3]
+    v, u = np.mgrid[0:H, 0:W]
+    rays = np.stack([(u + 0.5 - K[0, 2]) / K[0, 0], (v + 0.5 - K[1, 2]) / K[1, 1], np.ones((H, W))], -1)
+    rays_w = rays @ R.T  # world ray direction per unit of camera z
+    X = c + rays_w * depth[..., None]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        t_floor = -c[2] / rays_w[..., 2]
+
+    s = step
+    normal = np.zeros_like(X)
+    dx = X[s:-s, 2 * s :] - X[s:-s, : -2 * s]
+    dy = X[2 * s :, s:-s] - X[: -2 * s, s:-s]
+    normal[s:-s, s:-s] = np.cross(dx, dy)
+    cos_vertical = np.abs(normal[..., 2]) / (np.linalg.norm(normal, axis=-1) + 1e-12)
+
+    mask = (
+        (depth > 0)
+        & (X[..., 2] > band[0])
+        & (X[..., 2] < band[1])
+        & (cos_vertical > np.cos(np.deg2rad(max_normal_deg)))
+        & (t_floor > 0)
+    )
+    out = depth.astype(np.float32, copy=True)
+    out[mask] = t_floor[mask]
+    return out, mask
+
+
 def free_space_points(depth: np.ndarray, K: np.ndarray, T_cw: np.ndarray, cfg: dict) -> np.ndarray:
     """World points sampled along rays of every `carve_pixel_stride`-th valid pixel, from
     depth_min to (depth - truncation distance), spaced `carve_step_rel` * block edge."""
@@ -178,7 +218,7 @@ def grid_cloud(grid: o3d.t.geometry.VoxelBlockGrid, weight_threshold: float) -> 
     return {"points": pts, "colors": cols}
 
 
-def fuse_depths(out_dir: Path, cfg: dict) -> dict[str, dict]:
+def fuse_depths(out_dir: Path, cfg: dict, floor_height_range=(1.1, 1.9)) -> dict[str, dict]:
     """Stage entry: fuse aligned depth maps of each epoch into grid A and grid B.
 
     Inputs:  align/poses.json, depth/<frame>.npy (z-depth, 0 = invalid, only frames that
@@ -188,7 +228,12 @@ def fuse_depths(out_dir: Path, cfg: dict) -> dict[str, dict]:
     """
     import cv2
 
+    from src.alignment import floor_is_reliable
+
     poses = json.load(open(out_dir / "align" / "poses.json"))
+    alignment = json.load(open(out_dir / "align" / "alignment.json"))
+    snap = cfg.get("floor_snap", False) and floor_is_reliable(alignment, floor_height_range)
+    print(f"  floor snapping: {'on' if snap else 'off'}")
     depth_dir = out_dir / "depth"
     img_dir = out_dir / "sfm" / "undistorted" / "images"
     fdir = out_dir / "fusion"
@@ -204,16 +249,29 @@ def fuse_depths(out_dir: Path, cfg: dict) -> dict[str, dict]:
         if not names:
             raise RuntimeError(f"No aligned depth maps for epoch {epoch}; cannot fuse.")
 
-        def frames(names):
+        snapped = []
+
+        def frames(names, snapped):
             for n in names:
                 depth = np.load(depth_dir / f"{Path(n).stem}.npy")
+                K, T_cw = np.array(poses[n]["K"]), np.array(poses[n]["T_cw"])
+                if snap:
+                    depth, mask = snap_to_floor(
+                        depth,
+                        K,
+                        T_cw,
+                        cfg["floor_snap_band"],
+                        cfg["floor_snap_normal_deg"],
+                        cfg["floor_snap_step_px"],
+                    )
+                    snapped.append(float(mask.mean()))
                 bgr = cv2.imread(str(img_dir / n), cv2.IMREAD_COLOR)
                 rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB).astype(np.float32) / 255.0
                 if rgb.shape[:2] != depth.shape:
                     raise ValueError(f"{n}: image {rgb.shape[:2]} vs depth {depth.shape}")
-                yield depth, rgb, np.array(poses[n]["K"]), np.array(poses[n]["T_cw"])
+                yield depth, rgb, K, T_cw
 
-        grid = fuse(frames(names), cfg)
+        grid = fuse(frames(names, snapped), cfg)
         grid.save(str(fdir / f"grid_{epoch}.npz"))
         cloud = grid_cloud(grid, cfg["extract_weight_threshold"])
         np.savez_compressed(fdir / f"cloud_{epoch}.npz", **cloud)
@@ -224,6 +282,7 @@ def fuse_depths(out_dir: Path, cfg: dict) -> dict[str, dict]:
             "frames_fused": len(names),
             "blocks": int(grid.hashmap().size()),
             "cloud_points": int(len(cloud["points"])),
+            "floor_snapped_pixel_fraction": round(float(np.mean(snapped)), 3) if snapped else 0.0,
         }
         print(
             f"  [{epoch}] fused {len(names)} frames, {report[epoch]['blocks']} blocks, "

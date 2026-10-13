@@ -25,12 +25,16 @@ sfm:
 
 alignment:
   floor_ransac_threshold_rel: 0.01  # plane inlier distance, as a fraction of scene scale L
-  floor_min_inliers_ratio: 0.05   # minimum share of sparse points on the plane
+  floor_min_inliers_ratio: 0.03   # minimum share of sparse points on the plane (a glossy
+                                  #   tiled floor among furniture gave 3.9 %)
   max_tilt_deg: 30.0              # plane normal vs. mean camera up
   max_below_ratio: 0.05           # reject planes with more points below them (table tops)
   ransac_iterations: 2000
   seed: 0
   fallback_floor_percentile: 2.0  # no plane found: z = 0 at this height percentile
+  floor_camera_height_range: [1.1, 1.9]  # z = 0 counts as the floor (floor snapping, route
+                                  #   check) only if the cameras are this high above it;
+                                  #   above a mattress they are about 1 m
   # Scale: "metric_depth" | "camera_height" | "known" | "normalized" (see src/alignment.py).
   # camera_height is only valid when the floor itself is in view; in bedroom recordings the
   # dominant plane is often the mattress, so metric_depth is the default.
@@ -70,6 +74,12 @@ fusion:
   carve_pixel_stride: 8
   carve_step_rel: 0.5             # sample spacing along a ray, fraction of a block edge
   extract_weight_threshold: 2.0   # minimum weight for points in cloud_{A,B}
+  # Monocular depth bends a glossy floor up or down by 5-30 cm, differently per recording.
+  # When the floor is reliable, pixels that land near z = 0 and face up are put on the plane.
+  floor_snap: true
+  floor_snap_band: [-0.4, 0.2]    # height band around z = 0 that may be snapped
+  floor_snap_normal_deg: 30.0     # surface normal within this of vertical
+  floor_snap_step_px: 4           # finite-difference step for the normals
 
 diff:
   tau_rel: 0.05                   # depth disagreement threshold: max(tau_rel * depth,
@@ -113,8 +123,6 @@ navigation:                       # replay the route walked in A on B's occupanc
   robot_radius: 0.25              # occupied cells are inflated by this
   min_points_per_cell: 3          # fused points in the obstacle band to call a cell occupied
   min_blocked_cells: 3            # replan when at least this many route cells became blocked
-  camera_height_range: [1.1, 1.9] # skip unless cameras are this high above z = 0, i.e. the
-                                  #   plane is the floor and not a bed or table
 
 semantics:
   backend: "local"                # "local" (Qwen2-VL) | "none" (geometry-only descriptions)

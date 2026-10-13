@@ -20,6 +20,7 @@ from pathlib import Path
 
 import numpy as np
 
+from src.alignment import floor_is_reliable
 from src.utils.geometry import camera_center
 
 
@@ -171,16 +172,14 @@ def check_route(
     return result
 
 
-def plan_routes(out_dir: Path, cfg: dict, obstacle_z_band) -> dict | None:
+def plan_routes(out_dir: Path, cfg: dict, obstacle_z_band, floor_height_range) -> dict | None:
     """Stage entry: writes nav/route.json, or nothing if z = 0 is not the floor."""
     align = json.load(open(out_dir / "align" / "alignment.json"))
-    lo, hi = cfg["camera_height_range"]
-    cam_h = align["camera_height_median"]
-    if not align["floor_found"] or not (lo <= cam_h <= hi):
+    if not floor_is_reliable(align, floor_height_range):
         (out_dir / "nav" / "route.json").unlink(missing_ok=True)
         print(
-            f"  skipped: floor_found={align['floor_found']}, camera height {cam_h:.2f} "
-            f"outside [{lo}, {hi}], so z = 0 is probably not the floor"
+            f"  skipped: floor_found={align['floor_found']}, camera height "
+            f"{align['camera_height_median']:.2f}, so z = 0 is probably not the floor"
         )
         return None
 
