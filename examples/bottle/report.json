@@ -1,0 +1,109 @@
+{
+  "units": "approx. metres",
+  "scale_note": "APPROXIMATE metres from monocular metric depth (median over frames)",
+  "world_frame": "+z up; z=0 is the dominant horizontal support plane found by RANSAC (the floor, or a bed/table top when the floor is not visible)",
+  "counts": {
+    "moved": 0,
+    "removed": 0,
+    "added": 1
+  },
+  "unknown_evidence_voxels": 432,
+  "changes": [
+    {
+      "id": 0,
+      "action": "added",
+      "label": "cup",
+      "label_confidence": 0.8,
+      "description": "Cup added: An object was added (present only in the after recording). Region: centre at x=-0.22, y=1.98 m (approx.); size about 0.07 x 0.04 x 0.21 m (approx.) (top 0.29 m (approx.) above the z=0 plane).",
+      "spatial_summary": "The cup is on the couch, near the top right corner.",
+      "supporting_view_groups": 4,
+      "num_evidence_voxels": 28,
+      "box": {
+        "center": [
+          -0.2186,
+          1.981,
+          0.1901
+        ],
+        "extents": [
+          0.0678,
+          0.0417,
+          0.2094
+        ],
+        "yaw_rad": 1.1924,
+        "corners": [
+          [
+            -0.2118,
+            1.9419,
+            0.0854
+          ],
+          [
+            -0.2118,
+            1.9419,
+            0.2948
+          ],
+          [
+            -0.2505,
+            1.9572,
+            0.0854
+          ],
+          [
+            -0.2505,
+            1.9572,
+            0.2948
+          ],
+          [
+            -0.1868,
+            2.0048,
+            0.0854
+          ],
+          [
+            -0.1868,
+            2.0048,
+            0.2948
+          ],
+          [
+            -0.2255,
+            2.0202,
+            0.0854
+          ],
+          [
+            -0.2255,
+            2.0202,
+            0.2948
+          ]
+        ]
+      },
+      "centroid": [
+        -0.2186,
+        1.981,
+        0.1901
+      ],
+      "views": [
+        {
+          "epoch": "A",
+          "frame": "A_0021.jpg",
+          "box_px": [
+            9,
+            1136,
+            76,
+            1303
+          ],
+          "score": 11189.0,
+          "crop": "semantics\\crops\\change00_A.jpg"
+        },
+        {
+          "epoch": "B",
+          "frame": "B_0029.jpg",
+          "box_px": [
+            14,
+            1083,
+            78,
+            1250
+          ],
+          "score": 10688.0,
+          "crop": "semantics\\crops\\change00_B.jpg"
+        }
+      ]
+    }
+  ]
+}

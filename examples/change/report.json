@@ -1,0 +1,12 @@
+{
+  "units": "approx. metres",
+  "scale_note": "APPROXIMATE metres from monocular metric depth (median over frames)",
+  "world_frame": "gravity from camera-up (no floor plane found)",
+  "counts": {
+    "moved": 0,
+    "removed": 0,
+    "added": 0
+  },
+  "unknown_evidence_voxels": 82,
+  "changes": []
+}
