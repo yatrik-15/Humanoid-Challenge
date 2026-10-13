@@ -49,11 +49,18 @@ def main() -> None:
     parser.add_argument("--out", type=str, required=True, help="Output directory, e.g. out/scene1")
     parser.add_argument("--config", type=str, default=str(REPO / "config.yaml"))
     parser.add_argument(
+        "--known_focal_rel",
+        type=float,
+        help="phone focal length / image width, kept fixed in SfM (overrides sfm.known_focal_rel)",
+    )
+    parser.add_argument(
         "--stages", type=str, default="all", help=f"'all' or a comma-separated subset of: {','.join(STAGES)}"
     )
     args = parser.parse_args()
 
     config = load_config(args.config)
+    if args.known_focal_rel:
+        config["sfm"]["known_focal_rel"] = args.known_focal_rel
     # Keep model downloads off the (small) system drive; must be set before HF imports.
     hf_home = config.get("paths", {}).get("hf_home")
     if hf_home:

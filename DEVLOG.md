@@ -540,3 +540,31 @@ view. Glossy white tiles, black window at night. Logs `out/logs/multi_run{,2,3}.
   (wardrobe and bed sides), not the floor error.
 - Re-ran align..viz on bottle, static and keyboard with the new up estimate: bottle 1 added
   ("cup"), baseline 9; static 0, baseline 4; keyboard 0, baseline 1. Unchanged.
+
+## Stool pair: stool removed (2026-10-13)
+
+`data/Final_{A,B}.mp4`, a room corner with a stool (removed in B), a bag and a ball (both
+unchanged). Logs `out/logs/final_run{,2}.log`.
+
+- First run: 154/154 registered, 1.67 px, but 0 detections. Aligned depth maps were flat
+  (per-frame p95/p5 depth ratio 1.05-1.09; static 1.35-1.52, bottle 1.82-1.98), because the
+  sparse depths per frame were (p95/p5 1.14 vs 1.67-1.78). Triangulation angles were normal
+  (median max 4.6 deg; static 3.7, bottle 4.8), so the camera did move enough.
+- Cause: self-calibration. Solved SIMPLE_RADIAL focal / width and k per pair: bottle
+  1.631 / 0.034, static 1.646 / 0.049, keyboard 1.670 / 0.072, walkway 1.541 / 0.005; the
+  failed ball pair 2.342 / 0.189 and this pair 2.209 / 0.429. Same phone and video mode,
+  so the long focal plus strong distortion is a degenerate solution that compresses depth.
+- Fix: `sfm.known_focal_rel` (or `--known_focal_rel`) sets the focal length as a prior and
+  keeps it fixed (`ba_refine_focal_length = False`); distortion is still refined. 1.64 is the
+  median of the four self-calibrated pairs. Default stays null, so earlier runs are
+  unchanged. `sfm_report.json` now flags |k| > 0.15 as suspicious.
+- Second run with 1.64: k = 0.034, 154/154, 1.66 px, depth fits 80/80 and 74/74. Detections:
+  stool removed (VLM "footstool" 0.9), 0.57 x 0.44 x 0.42 m, 5 view groups; a second
+  removed cluster on the stool's left side (split by DBSCAN); 2 false added, the larger
+  (1.88 x 0.73 x 1.14 m) on the blank white wall left of the stool, where B's surface is
+  about 13 cm in front of A's; one 0.20 m fragment under the stool. Baseline: 2 moved,
+  6 removed, 2 added.
+- Heights on this pair are not reliable: the plane RANSAC picks is real floor near the
+  camera (its inliers sit 1.23-1.51 m below the cameras along the estimated up) but tilted
+  22 deg from that up; the phone was visibly rolled, which the x-axis up estimate assumes
+  away. Camera height 0.88 m, so floor snapping and the route check stayed off.

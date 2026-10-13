@@ -18,6 +18,10 @@ sfm:
   match_pairs: "exhaustive"       # "exhaustive" | "retrieval" (NetVLAD)
   retrieval_top_k: 20             # retrieval only
   camera_model: "SIMPLE_RADIAL"   # one camera shared by both videos
+  known_focal_rel: null           # focal length / image width of the phone, kept fixed in
+                                  #   SfM; null = self-calibrate. Nothing A063 video: 1.64
+                                  #   (median of the four pairs that self-calibrated)
+  max_abs_radial: 0.15            # warn above this solved distortion (good pairs <= 0.07)
   min_match_score: 0.0
   mapper:                         # pycolmap.IncrementalPipelineOptions fields
     min_num_matches: 15

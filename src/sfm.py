@@ -14,6 +14,7 @@ import json
 import shutil
 from pathlib import Path
 
+import cv2
 import numpy as np
 import pycolmap
 from hloc import (
@@ -168,6 +169,18 @@ def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
 
     # keys are pycolmap.IncrementalPipelineOptions attribute names
     mapper_options = dict(config.get("mapper", {}))
+    image_options = {"camera_model": config["camera_model"]}
+    known_focal_rel = config.get("known_focal_rel")
+    if known_focal_rel:
+        # Self-calibration can trade a too-long focal length against strong radial distortion
+        # when the tracked points sit at similar depths, which flattens all depth. A known
+        # lens is set as the prior and kept fixed; distortion is still refined.
+        if config["camera_model"] != "SIMPLE_RADIAL":
+            raise ValueError("known_focal_rel is implemented for SIMPLE_RADIAL (f, cx, cy, k)")
+        h, w = cv2.imread(str(frames_dir / image_list[0])).shape[:2]
+        image_options["camera_params"] = f"{known_focal_rel * w},{w / 2},{h / 2},0"
+        mapper_options["ba_refine_focal_length"] = False
+        print(f"  Known lens: f = {known_focal_rel} x width = {known_focal_rel * w:.1f} px, kept fixed")
 
     model = reconstruction.main(
         sfm_dir=sfm_dir / "model",
@@ -179,6 +192,7 @@ def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
         verbose=True,
         min_match_score=config.get("min_match_score"),
         image_list=image_list,  # avoids importing manifest.csv/json as images
+        image_options=image_options,
         mapper_options=mapper_options or None,
     )
     if model is None:
@@ -221,6 +235,18 @@ def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
             "height": cam.height,
             "params": cam.params.tolist(),
         }
+
+    cam = model.camera(next(iter(model.cameras)))
+    if cam.model_name == "SIMPLE_RADIAL":
+        k = float(cam.params[3])
+        report["radial_distortion"] = round(k, 4)
+        report["intrinsics_suspicious"] = abs(k) > config["max_abs_radial"]
+        if report["intrinsics_suspicious"]:
+            print(
+                f"  WARNING: radial distortion {k:.3f} is implausible for a phone's main camera; "
+                "self-calibration probably traded it against the focal length, which flattens "
+                "depth. Re-run with --known_focal_rel (see README)."
+            )
 
     report_path = sfm_dir / "sfm_report.json"
     with open(report_path, "w") as f:
