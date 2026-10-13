@@ -1,0 +1,17 @@
+# environment and model caches
+venv/
+.hf_cache/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+
+# recordings and pipeline outputs (large; examples/ keeps small copies of real results)
+data/*.mp4
+out/
+
+# local editor / OS files
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

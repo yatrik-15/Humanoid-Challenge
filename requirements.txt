@@ -1,0 +1,30 @@
+# Exact versions used for the results in README: requirements.lock.
+# Install torch with CUDA first:
+#   pip install torch==2.6.0+cu124 torchvision==0.21.0+cu124 --index-url https://download.pytorch.org/whl/cu124
+torch>=2.1
+torchvision>=0.16
+numpy
+scipy
+pyyaml
+pydantic>=2.0
+
+# structure from motion (DISK via kornia, LightGlue)
+pycolmap>=4.2
+hloc @ git+https://github.com/cvg/Hierarchical-Localization.git
+lightglue @ git+https://github.com/cvg/LightGlue
+kornia
+
+open3d>=0.20
+transformers>=5.0          # Depth Anything V2, Qwen2-VL
+huggingface-hub
+imageio[pyav]
+opencv-python-headless
+Pillow
+rerun-sdk>=0.39
+matplotlib
+scikit-learn
+tabulate
+
+# development
+pytest
+ruff

@@ -1,0 +1,24 @@
+[project]
+name = "room-change"
+version = "0.1.0"
+description = "3-D change detection between two phone videos of the same room"
+requires-python = ">=3.11"
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+extend-exclude = ["venv", ".hf_cache", "out"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = ["E741", "B905", "E501"]  # line length is enforced by `ruff format`; long string literals are left intact
+
+[tool.ruff.lint.per-file-ignores]
+# open3d-dependent imports must follow pytest.importorskip("open3d")
+"tests/test_change_detection.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "eval", "tests"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

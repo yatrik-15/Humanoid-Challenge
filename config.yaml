@@ -1,0 +1,139 @@
+# Pipeline settings. Lengths are in world units: approximate metres when
+# align/alignment.json says scale_is_metric, otherwise arbitrary scene units.
+
+paths:
+  hf_home: ".hf_cache"            # Hugging Face cache, relative to the repo
+
+frames:
+  fps: 2.0                        # frames sampled per second of video
+  blur_rel_threshold: 0.5         # drop a frame whose sharpness is below this x the median of
+  blur_window: 7                  #   this many neighbouring frames (see frames.blur_keep_mask)
+  max_dimension: 1600             # longest image side after resizing
+
+sfm:
+  feature_type: "disk"            # "disk" | "superpoint" (superpoint needs hloc's
+                                  #   SuperGluePretrainedNetwork submodule)
+  matcher_type: "lightglue"       # "lightglue" | "superglue"
+  max_keypoints: 4096
+  match_pairs: "exhaustive"       # "exhaustive" | "retrieval" (NetVLAD)
+  retrieval_top_k: 20             # retrieval only
+  camera_model: "SIMPLE_RADIAL"   # one camera shared by both videos
+  min_match_score: 0.0
+  mapper:                         # pycolmap.IncrementalPipelineOptions fields
+    min_num_matches: 15
+    ba_global_max_num_iterations: 100
+
+alignment:
+  floor_ransac_threshold_rel: 0.01  # plane inlier distance, as a fraction of scene scale L
+  floor_min_inliers_ratio: 0.05   # minimum share of sparse points on the plane
+  max_tilt_deg: 30.0              # plane normal vs. mean camera up
+  max_below_ratio: 0.05           # reject planes with more points below them (table tops)
+  ransac_iterations: 2000
+  seed: 0
+  fallback_floor_percentile: 2.0  # no plane found: z = 0 at this height percentile
+  # Scale: "metric_depth" | "camera_height" | "known" | "normalized" (see src/alignment.py).
+  # camera_height is only valid when the floor itself is in view; in bedroom recordings the
+  # dominant plane is often the mattress, so metric_depth is the default.
+  scale_mode: "metric_depth"
+  metric_depth_model_id: "depth-anything/Depth-Anything-V2-Metric-Indoor-Small-hf"
+  metric_frame_stride: 3          # use every Nth registered frame
+  metric_min_points: 50           # minimum sparse points in a frame to use it
+  assumed_camera_height_m: 1.3    # camera_height mode
+  known_scale: 1.0                # known mode: metres per SfM unit
+  normalized_scene_scale: 2.0     # normalized mode: L maps to this many units
+
+depth:
+  model_size: "small"             # small | base | large
+  hf_model_ids:
+    small: "depth-anything/Depth-Anything-V2-Small-hf"
+    base: "depth-anything/Depth-Anything-V2-Base-hf"
+    large: "depth-anything/Depth-Anything-V2-Large-hf"
+  alignment:                      # per-frame scale/shift fit against sparse SfM depth
+    min_sparse_points: 20
+    ransac_inlier_threshold: 0.1  # inverse-depth residual relative to the frame's median 1/z
+    ransac_iterations: 500
+    min_inlier_ratio: 0.4         # reject the frame below this
+    max_residual: 0.15            # reject the frame above this median residual
+
+fusion:
+  voxel_size: 0.02
+  block_resolution: 16            # voxels per block edge
+  block_count: 50000              # initial hash map capacity
+  depth_min: 0.1
+  depth_max: 5.0                  # ignore depth beyond this (integration and rendering)
+  sdf_trunc_multiplier: 6.0       # truncation = voxel_size * this
+  raycast_weight_threshold: 1.0   # minimum weight for the rendered surface
+  edge_rel_jump: 0.05             # depth jump > this * depth between neighbours = edge
+  edge_erode_px: 2                # drop pixels this close to an edge or invalid pixel
+  carve_free_space: true          # also allocate blocks along camera rays, so empty space far
+                                  #   from surfaces counts as observed
+  carve_pixel_stride: 8
+  carve_step_rel: 0.5             # sample spacing along a ray, fraction of a block edge
+  extract_weight_threshold: 2.0   # minimum weight for points in cloud_{A,B}
+
+diff:
+  tau_rel: 0.05                   # depth disagreement threshold: max(tau_rel * depth,
+  tau_abs_min: 0.03               #   tau_abs_min). Objects lower than ~5 cm lying on a
+                                  #   surface fall below this at typical filming distances.
+  min_views: 3                    # distinct viewpoint groups that must confirm a change voxel
+  evidence_voxel_size: 0.03
+  free_space_check: true          # false only for the ablation
+  free_tsdf_min: 0.3              # the other recording must see the point as free space
+  view_group_radius_rel: 0.05     # poses closer than this * scene scale and within the angle
+  view_group_angle_deg: 10.0      #   below count as one viewpoint
+  render_scale: 0.5               # render at this fraction of the image resolution
+
+cluster:
+  dbscan_eps: 0.06                # about two evidence voxels
+  dbscan_min_points: 10
+  min_frontal_area: 0.005         # product of the two largest extents (~5 x 10 cm). Evidence
+                                  #   only covers the visible side, so volume is not used.
+  min_cluster_points: 20
+  # Filters for static surfaces that monocular depth places slightly differently per video:
+  min_cluster_thickness: 0.10     # thinner than this along the smallest axis and wider than
+  sheet_aspect: 3.0               #   sheet_aspect x that along the middle axis = a sheet on
+                                  #   a wall or bed, rejected. Poles are kept; flat objects
+                                  #   (posters, rugs, a keyboard) are not reported.
+  min_surface_gap: 0.06           # reject if the evidence lies this close to the other
+                                  #   recording's surface (median distance)
+
+moved:
+  max_volume_ratio: 2.0
+  max_extent_ratio: 2.0           # per sorted box extent
+  min_appearance_sim: 0.3         # hue/saturation histogram intersection, 0..1
+  max_centroid_distance: 3.0
+  hist_bins: 16
+  appearance_box_margin: 0.02     # grow the box by this when collecting colours
+
+baseline:
+  nn_threshold: 0.05              # a point is "changed" if the other cloud has nothing closer
+
+semantics:
+  backend: "local"                # "local" (Qwen2-VL) | "none" (geometry-only descriptions)
+  local_model: "Qwen/Qwen2-VL-2B-Instruct"
+  device: "auto"                  # CUDA if it fits, otherwise CPU
+  max_pixels: 200704              # per-image pixel cap for the processor (256 * 28 * 28)
+  max_new_tokens: 120
+  max_retries: 2                  # on invalid JSON
+  occlusion_render_scale: 0.25    # resolution of the occlusion render for view selection
+  occlusion_tol: 0.05             # a point is visible if z <= rendered depth + this
+  max_surface_points: 400         # object points used for the occlusion test
+  max_area_frac: 0.35             # cap on projected-box area when scoring views, so views
+                                  #   with some context win over extreme close-ups
+  crop_pad_rel: 0.25              # crop padding relative to the projected box
+  crop_min_px: 96
+
+viz:
+  rerun_enabled: true
+  mp4_enabled: true
+  floor_map_enabled: true
+  bbox_color_added: [0, 200, 0]
+  bbox_color_removed: [230, 30, 30]
+  bbox_color_moved: [255, 165, 0]
+  max_cloud_points: 300000        # subsample clouds in the .rrd above this
+  point_radius: 0.005
+  frustum_size: 0.1
+  mp4_fps: 2
+  mp4_max_width: 1600
+  pair_angle_weight: 1.0          # A/B frame pairing cost: centre distance + this * (1 - cos)
+  obstacle_z_band: [0.05, 1.8]    # heights above z = 0 drawn as obstacles in the floor map
