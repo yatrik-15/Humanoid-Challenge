@@ -32,7 +32,7 @@ from typing import Literal
 import numpy as np
 from pydantic import BaseModel, Field, ValidationError
 
-from src.utils.geometry import project_points
+from src.utils.geometry import in_box, project_points
 
 
 class ChangeLabel(BaseModel):
@@ -70,16 +70,7 @@ def box_corners(change: dict, key: str) -> np.ndarray:
 
 def surface_in_box(cloud_pts: np.ndarray, box: dict, max_pts: int, rng: np.random.Generator) -> np.ndarray:
     """Fused-cloud points inside a (yaw-only) box: the object's actual observed surface."""
-    c, s = np.cos(box["yaw_rad"]), np.sin(box["yaw_rad"])
-    R2 = np.array([[c, -s], [s, c]])
-    local = (cloud_pts[:, :2] - np.array(box["center"][:2])) @ R2
-    half = np.array(box["extents"]) / 2
-    m = (
-        (np.abs(local[:, 0]) <= half[0])
-        & (np.abs(local[:, 1]) <= half[1])
-        & (np.abs(cloud_pts[:, 2] - box["center"][2]) <= half[2])
-    )
-    pts = cloud_pts[m]
+    pts = cloud_pts[in_box(box, cloud_pts)]
     if len(pts) > max_pts:
         pts = pts[rng.choice(len(pts), max_pts, replace=False)]
     return pts

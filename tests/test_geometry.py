@@ -119,3 +119,13 @@ def test_pycolmap_convention_matches():
     X_c = rig * X[0]
     uv_colmap = cam.img_from_cam(X_c)
     np.testing.assert_allclose(uv_ours[0], np.asarray(uv_colmap).ravel()[:2], atol=1e-8)
+
+
+def test_in_box_handles_yaw_margin_and_footprint_only():
+    from src.utils.geometry import in_box
+
+    box = {"center": [1.0, 2.0, 0.5], "extents": [0.4, 0.2, 1.0], "yaw_rad": np.pi / 2}  # long side along y
+    pts = np.array([[1.0, 2.15, 0.5], [1.15, 2.0, 0.5], [1.0, 2.0, 1.2]])
+    assert in_box(box, pts).tolist() == [True, False, False]
+    assert in_box(box, pts, margin=0.06).tolist() == [True, True, False]
+    assert in_box(box, pts[:, :2]).tolist() == [True, False, True]  # footprint ignores height

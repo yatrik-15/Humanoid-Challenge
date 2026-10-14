@@ -134,3 +134,12 @@ def test_camera_up_with_phone_pitched_down():
     assert np.rad2deg(np.arccos(image_up[2])) > 30
     up = estimate_camera_up(T_cws)
     assert np.rad2deg(np.arccos(np.clip(up[2], -1, 1))) < 1.0
+
+
+def test_camera_path_lengths_per_recording_in_frame_order():
+    from src.alignment import camera_path_lengths
+
+    names = ["B_0002.jpg", "A_0001.jpg", "A_0002.jpg", "B_0001.jpg", "A_0003.jpg"]
+    centers = np.array([[0, 3, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0], [1, 1, 0]], float)
+    lengths = camera_path_lengths(names, centers)
+    assert lengths == {"A": 2.0, "B": 3.0}

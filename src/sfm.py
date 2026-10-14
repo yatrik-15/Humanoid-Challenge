@@ -27,173 +27,164 @@ from hloc import (
 from src.pairs import windowed_pairs
 
 
-def get_feature_conf(feature_type: str, max_keypoints: int) -> dict:
-    """Get hloc feature extraction configuration.
-
-    Args:
-        feature_type: "superpoint" or "disk".
-        max_keypoints: Maximum keypoints per image.
-
-    Returns:
-        hloc feature config dict.
-    """
-    if feature_type == "superpoint":
-        conf = extract_features.confs["superpoint_aachen"].copy()
-        conf["model"] = conf["model"].copy()
-        conf["model"]["max_keypoints"] = max_keypoints
-    elif feature_type == "disk":
-        conf = extract_features.confs["disk"].copy()
-        conf["model"] = conf["model"].copy()
-        conf["model"]["max_keypoints"] = max_keypoints
-    else:
-        raise ValueError(f"Unknown feature type: {feature_type}. Use 'superpoint' or 'disk'.")
+def feature_conf(feature_type: str, max_keypoints: int) -> dict:
+    """hloc feature extractor config ("disk" or "superpoint") with a keypoint budget."""
+    names = {"disk": "disk", "superpoint": "superpoint_aachen"}
+    if feature_type not in names:
+        raise ValueError(f"Unknown feature type {feature_type!r}; use 'disk' or 'superpoint'.")
+    conf = extract_features.confs[names[feature_type]].copy()
+    conf["model"] = {**conf["model"], "max_keypoints": max_keypoints}
     return conf
 
 
-def get_matcher_conf(feature_type: str, matcher_type: str) -> dict:
-    """Get hloc matcher configuration.
-
-    Args:
-        feature_type: "superpoint" or "disk".
-        matcher_type: "lightglue" or "superglue".
-
-    Returns:
-        hloc matcher config dict.
-    """
-    if matcher_type == "lightglue":
-        key = f"{feature_type}+lightglue"
-    elif matcher_type == "superglue":
-        key = "superglue"
-    else:
-        raise ValueError(f"Unknown matcher type: {matcher_type}")
-
+def matcher_conf(feature_type: str, matcher_type: str) -> dict:
+    """hloc matcher config: LightGlue for the given features, or SuperGlue."""
+    if matcher_type not in ("lightglue", "superglue"):
+        raise ValueError(f"Unknown matcher type {matcher_type!r}")
+    key = f"{feature_type}+lightglue" if matcher_type == "lightglue" else "superglue"
     if key not in match_features.confs:
-        raise ValueError(f"Matcher config '{key}' not found in hloc.")
-
+        raise ValueError(f"Matcher config {key!r} not found in hloc.")
     return match_features.confs[key].copy()
 
 
-def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
-    """Run joint SfM on extracted frames from both videos.
-
-    Args:
-        out_dir: Output directory (must contain out_dir/frames/ with extracted frames).
-        config: SfM config dict from config.yaml.
-
-    Returns:
-        pycolmap.Reconstruction object.
-    """
-    frames_dir = out_dir / "frames"
-    sfm_dir = out_dir / "sfm"
-    hloc_dir = sfm_dir / "hloc"
-    sfm_dir.mkdir(parents=True, exist_ok=True)
-    hloc_dir.mkdir(parents=True, exist_ok=True)
-
-    # Load manifest to get image list
-    manifest_path = frames_dir / "manifest.json"
-    with open(manifest_path) as f:
-        manifest = json.load(f)
-
-    image_list = [entry["frame_name"] for entry in manifest]
-    a_images = [e["frame_name"] for e in manifest if e["epoch"] == "A"]
-    b_images = [e["frame_name"] for e in manifest if e["epoch"] == "B"]
-
-    print(f"  Images: {len(image_list)} total ({len(a_images)} A, {len(b_images)} B)")
-
-    # --- Feature Extraction ---
-    print("\n  [1/4] Extracting features...")
-    feature_conf = get_feature_conf(
-        config["feature_type"],
-        config["max_keypoints"],
-    )
-    feature_path = extract_features.main(
-        conf=feature_conf,
-        image_dir=frames_dir,
-        export_dir=hloc_dir,
-        image_list=image_list,
-        overwrite=False,
-    )
-    print(f"  Features saved to: {feature_path}")
-
-    # --- Generate Pairs ---
-    print("\n  [2/4] Generating match pairs...")
+def write_pairs(config: dict, image_list: list[str], frames_dir: Path, hloc_dir: Path) -> Path:
+    """Write the image pairs to match (sfm.match_pairs) and return the pairs file."""
     pairs_path = hloc_dir / "pairs.txt"
-
-    if config["match_pairs"] == "exhaustive":
-        pairs_from_exhaustive.main(
-            output=pairs_path,
-            image_list=image_list,
-        )
-    elif config["match_pairs"] == "windowed":
+    mode = config["match_pairs"]
+    if mode == "exhaustive":
+        pairs_from_exhaustive.main(output=pairs_path, image_list=image_list)
+    elif mode == "windowed":
         pairs = windowed_pairs(image_list, config["pair_window"], config["pair_cross_stride"])
         pairs_path.write_text("".join(f"{a} {b}\n" for a, b in pairs))
-    else:
-        # Retrieval-based pairing (uses NetVLAD)
+    elif mode == "retrieval":
         from hloc import pairs_from_retrieval
 
-        retrieval_conf = extract_features.confs["netvlad"]
-        retrieval_path = extract_features.main(
-            conf=retrieval_conf,
+        descriptors = extract_features.main(
+            conf=extract_features.confs["netvlad"],
             image_dir=frames_dir,
             export_dir=hloc_dir,
             image_list=image_list,
             overwrite=False,
         )
         pairs_from_retrieval.main(
-            descriptors=retrieval_path,
-            output=pairs_path,
-            num_matched=config["retrieval_top_k"],
+            descriptors=descriptors, output=pairs_path, num_matched=config["retrieval_top_k"]
         )
-
-    # Count pairs
+    else:
+        raise ValueError(f"Unknown match_pairs {mode!r}")
     with open(pairs_path) as f:
-        n_pairs = sum(1 for _ in f)
-    print(f"  Generated {n_pairs} pairs")
+        print(f"  Generated {sum(1 for _ in f)} pairs")
+    return pairs_path
 
-    # --- Feature Matching ---
-    print("\n  [3/4] Matching features...")
-    matcher_conf = get_matcher_conf(
-        config["feature_type"],
-        config["matcher_type"],
-    )
-    # hloc needs an explicit matches path when `features` is given as a Path
-    matches_path = match_features.main(
-        conf=matcher_conf,
-        pairs=pairs_path,
-        features=feature_path,
-        matches=hloc_dir / f"{matcher_conf['output']}.h5",
-        overwrite=False,
-    )
-    print(f"  Matches saved to: {matches_path}")
 
-    # --- Reconstruction ---
-    print("\n  [4/4] Running SfM reconstruction...")
+def camera_options(config: dict, first_image: Path) -> tuple[dict, dict]:
+    """(image_options, mapper_options) for hloc's reconstruction.
 
-    # one shared camera: both videos come from the same phone
-    camera_mode = pycolmap.CameraMode.SINGLE
-
-    # keys are pycolmap.IncrementalPipelineOptions attribute names
-    mapper_options = dict(config.get("mapper", {}))
+    Self-calibration can trade a too-long focal length against strong radial distortion
+    when the tracked points sit at similar depths, which flattens all depth. With
+    `known_focal_rel` the lens is set as the prior and kept fixed; distortion is still refined.
+    """
     image_options = {"camera_model": config["camera_model"]}
-    known_focal_rel = config.get("known_focal_rel")
-    if known_focal_rel:
-        # Self-calibration can trade a too-long focal length against strong radial distortion
-        # when the tracked points sit at similar depths, which flattens all depth. A known
-        # lens is set as the prior and kept fixed; distortion is still refined.
+    mapper_options = dict(config.get("mapper", {}))  # pycolmap.IncrementalPipelineOptions fields
+    f_rel = config.get("known_focal_rel")
+    if f_rel:
         if config["camera_model"] != "SIMPLE_RADIAL":
             raise ValueError("known_focal_rel is implemented for SIMPLE_RADIAL (f, cx, cy, k)")
-        h, w = cv2.imread(str(frames_dir / image_list[0])).shape[:2]
-        image_options["camera_params"] = f"{known_focal_rel * w},{w / 2},{h / 2},0"
+        h, w = cv2.imread(str(first_image)).shape[:2]
+        image_options["camera_params"] = f"{f_rel * w},{w / 2},{h / 2},0"
         mapper_options["ba_refine_focal_length"] = False
-        print(f"  Known lens: f = {known_focal_rel} x width = {known_focal_rel * w:.1f} px, kept fixed")
+        print(f"  Known lens: f = {f_rel} x width = {f_rel * w:.1f} px, kept fixed")
+    return image_options, mapper_options
 
+
+def sfm_report(model: pycolmap.Reconstruction, image_list: list[str], max_abs_radial: float) -> dict:
+    """Registration counts per recording, reprojection error, track length and intrinsics,
+    with a warning when the solved distortion is implausible for a phone's main camera."""
+    reg_names = [model.image(i).name for i in model.reg_image_ids()]
+    total = {e: sum(n.startswith(f"{e}_") for n in image_list) for e in ("A", "B")}
+    reg = {e: sum(n.startswith(f"{e}_") for n in reg_names) for e in ("A", "B")}
+    report = {
+        "total_images": len(image_list),
+        "registered_images": len(reg_names),
+        "registered_A": reg["A"],
+        "registered_B": reg["B"],
+        "unregistered_A": total["A"] - reg["A"],
+        "unregistered_B": total["B"] - reg["B"],
+        "num_points3D": model.num_points3D(),
+        "mean_reprojection_error": round(model.compute_mean_reprojection_error(), 4),
+        "mean_track_length": round(model.compute_mean_track_length(), 2),
+        "num_cameras": model.num_cameras(),
+    }
+    for cam_id in model.cameras:
+        cam = model.camera(cam_id)
+        report[f"camera_{cam_id}"] = {
+            "model": cam.model_name,
+            "width": cam.width,
+            "height": cam.height,
+            "params": cam.params.tolist(),
+        }
+    cam = model.camera(next(iter(model.cameras)))
+    if cam.model_name == "SIMPLE_RADIAL":
+        k = float(cam.params[3])
+        report["radial_distortion"] = round(k, 4)
+        report["intrinsics_suspicious"] = abs(k) > max_abs_radial
+        if report["intrinsics_suspicious"]:
+            print(
+                f"  WARNING: radial distortion {k:.3f} is implausible for a phone's main camera; "
+                "self-calibration probably traded it against the focal length, which flattens "
+                "depth. Re-run with --known_focal_rel (see README)."
+            )
+    print(
+        f"  Registered: {report['registered_images']}/{report['total_images']} "
+        f"(A: {reg['A']}/{total['A']}, B: {reg['B']}/{total['B']})"
+    )
+    print(f"  3D points: {report['num_points3D']}, mean track length {report['mean_track_length']:.2f}")
+    print(f"  Mean reprojection error: {report['mean_reprojection_error']:.4f} px")
+    if min(reg[e] / max(total[e], 1) for e in ("A", "B")) < 0.5:
+        print("  WARNING: under half of one recording registered; the joint model may not link A and B.")
+    if report["mean_reprojection_error"] > 2.0:
+        print("  WARNING: mean reprojection error above 2 px.")
+    return report
+
+
+def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
+    """Stage entry: features, pairs, matches and one incremental reconstruction of the
+    frames of both recordings, then the undistorted model, poses and plots."""
+    frames_dir, sfm_dir = out_dir / "frames", out_dir / "sfm"
+    hloc_dir = sfm_dir / "hloc"
+    hloc_dir.mkdir(parents=True, exist_ok=True)
+    with open(frames_dir / "manifest.json") as f:
+        image_list = [entry["frame_name"] for entry in json.load(f)]
+    n_a = sum(n.startswith("A_") for n in image_list)
+    print(f"  Images: {len(image_list)} total ({n_a} A, {len(image_list) - n_a} B)")
+
+    print("\n  [1/4] Extracting features...")
+    features = extract_features.main(
+        conf=feature_conf(config["feature_type"], config["max_keypoints"]),
+        image_dir=frames_dir,
+        export_dir=hloc_dir,
+        image_list=image_list,
+        overwrite=False,
+    )
+    print("\n  [2/4] Generating match pairs...")
+    pairs = write_pairs(config, image_list, frames_dir, hloc_dir)
+    print("\n  [3/4] Matching features...")
+    m_conf = matcher_conf(config["feature_type"], config["matcher_type"])
+    matches = match_features.main(  # hloc needs an explicit matches path when features is a Path
+        conf=m_conf,
+        pairs=pairs,
+        features=features,
+        matches=hloc_dir / f"{m_conf['output']}.h5",
+        overwrite=False,
+    )
+    print("\n  [4/4] Running SfM reconstruction...")
+    image_options, mapper_options = camera_options(config, frames_dir / image_list[0])
     model = reconstruction.main(
         sfm_dir=sfm_dir / "model",
         image_dir=frames_dir,
-        pairs=pairs_path,
-        features=feature_path,
-        matches=matches_path,
-        camera_mode=camera_mode,
+        pairs=pairs,
+        features=features,
+        matches=matches,
+        camera_mode=pycolmap.CameraMode.SINGLE,  # one shared camera: both videos from one phone
         verbose=True,
         min_match_score=config.get("min_match_score"),
         image_list=image_list,  # avoids importing manifest.csv/json as images
@@ -205,82 +196,11 @@ def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
             "Joint SfM produced no model. Check overlap/texture between the videos; "
             f"COLMAP logs are in {sfm_dir / 'model'}."
         )
-
-    # --- Report ---
-    reg_image_ids = model.reg_image_ids()
-    reg_images = [model.image(img_id) for img_id in reg_image_ids]
-    reg_names = [img.name for img in reg_images]
-
-    reg_a = [n for n in reg_names if n.startswith("A_")]
-    reg_b = [n for n in reg_names if n.startswith("B_")]
-
-    mean_reproj_error = model.compute_mean_reprojection_error()
-    num_points3d = model.num_points3D()
-    mean_track_length = model.compute_mean_track_length()
-
-    report = {
-        "total_images": len(image_list),
-        "registered_images": len(reg_image_ids),
-        "registered_A": len(reg_a),
-        "registered_B": len(reg_b),
-        "unregistered_A": len(a_images) - len(reg_a),
-        "unregistered_B": len(b_images) - len(reg_b),
-        "num_points3D": num_points3d,
-        "mean_reprojection_error": round(mean_reproj_error, 4),
-        "mean_track_length": round(mean_track_length, 2),
-        "num_cameras": model.num_cameras(),
-    }
-
-    # Save camera intrinsics
-    for cam_id in model.cameras:
-        cam = model.camera(cam_id)
-        report[f"camera_{cam_id}"] = {
-            "model": cam.model_name,
-            "width": cam.width,
-            "height": cam.height,
-            "params": cam.params.tolist(),
-        }
-
-    cam = model.camera(next(iter(model.cameras)))
-    if cam.model_name == "SIMPLE_RADIAL":
-        k = float(cam.params[3])
-        report["radial_distortion"] = round(k, 4)
-        report["intrinsics_suspicious"] = abs(k) > config["max_abs_radial"]
-        if report["intrinsics_suspicious"]:
-            print(
-                f"  WARNING: radial distortion {k:.3f} is implausible for a phone's main camera; "
-                "self-calibration probably traded it against the focal length, which flattens "
-                "depth. Re-run with --known_focal_rel (see README)."
-            )
-
-    report_path = sfm_dir / "sfm_report.json"
-    with open(report_path, "w") as f:
+    report = sfm_report(model, image_list, config["max_abs_radial"])
+    with open(sfm_dir / "sfm_report.json", "w") as f:
         json.dump(report, f, indent=2)
 
-    print("\n  === SfM Report ===")
-    print(
-        f"  Registered: {report['registered_images']}/{report['total_images']} "
-        f"(A: {report['registered_A']}/{len(a_images)}, "
-        f"B: {report['registered_B']}/{len(b_images)})"
-    )
-    print(f"  3D Points: {num_points3d}")
-    print(f"  Mean reprojection error: {mean_reproj_error:.4f} px")
-    print(f"  Mean track length: {mean_track_length:.2f}")
-    print(f"  Report saved to: {report_path}")
-
-    # Check acceptance criteria
-    a_ratio = len(reg_a) / max(len(a_images), 1)
-    b_ratio = len(reg_b) / max(len(b_images), 1)
-
-    if a_ratio < 0.5 or b_ratio < 0.5:
-        print(
-            f"\n  WARNING: Registration ratio too low "
-            f"(A: {a_ratio:.0%}, B: {b_ratio:.0%}). "
-            f"Joint SfM may have failed to register both videos."
-        )
-    if mean_reproj_error > 2.0:
-        print(f"\n  WARNING: Mean reprojection error is high ({mean_reproj_error:.2f} px)")
-
+    reg_names = [model.image(i).name for i in model.reg_image_ids()]
     undist_dir = undistort(sfm_dir, frames_dir, reg_names)
     poses = export_poses(pycolmap.Reconstruction(undist_dir / "sparse"), sfm_dir / "poses.json")
     plot_trajectories(poses, sfm_dir / "trajectories.png")

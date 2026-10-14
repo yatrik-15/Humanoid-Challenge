@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from src.utils.geometry import look_at_T_cw
-from src.viz import MeshView, inside_box
+from src.utils.geometry import in_box, look_at_T_cw
+from src.viz import MeshView
 
 K = np.array([[100.0, 0, 50], [0, 100.0, 50], [0, 0, 1]])
 T = look_at_T_cw(np.zeros(3), np.array([0.0, 0.0, 1.0]), np.array([0.0, -1.0, 0.0]))
@@ -46,7 +46,7 @@ def test_surface_inside_a_change_box_is_tinted():
     img = MeshView(mesh).render(K, T, 100, 100, tints=[(box, [0, 200, 0])])
     assert img[50, 50, 1] > img[50, 50, 0] + 50  # tinted green inside the box
     assert abs(int(img[50, 20, 1]) - int(img[50, 20, 0])) < 5  # untouched outside it
-    assert inside_box(box, np.array([[0.0, 0.0, 1.0], [0.2, 0.0, 1.0]])).tolist() == [True, False]
+    assert in_box(box, np.array([[0.0, 0.0, 1.0], [0.2, 0.0, 1.0]])).tolist() == [True, False]
 
 
 def test_vertical_structure_marks_walls_not_a_tilted_floor():

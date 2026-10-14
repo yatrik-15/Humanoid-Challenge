@@ -253,6 +253,15 @@ def compute_similarity(
     return s, R, t, mode, is_metric
 
 
+def camera_path_lengths(names: list[str], centers: np.ndarray) -> dict[str, float]:
+    """Length of each recording's camera path (A_*/B_* frames in order), in world units."""
+    out = {}
+    for e in ("A", "B"):
+        C = centers[[i for i in np.argsort(names) if names[i].startswith(f"{e}_")]]
+        out[e] = float(np.linalg.norm(np.diff(C, axis=0), axis=1).sum()) if len(C) > 1 else 0.0
+    return out
+
+
 def align_scene(out_dir: Path, config: dict) -> dict:
     """Fit the support plane, transform the undistorted model and export poses."""
     from src.sfm import export_poses
@@ -312,7 +321,15 @@ def align_scene(out_dir: Path, config: dict) -> dict:
         "camera_height_median": float(np.median(new_cams[:, 2])),
         "num_points3D": int(len(points)),
         "metric_depth_stats": metric_stats,
+        "camera_path_length": camera_path_lengths(
+            [model.image(i).name for i in model.reg_image_ids()], new_cams
+        ),
     }
+    report["camera_path_short"] = (
+        sorted(e for e, L in report["camera_path_length"].items() if L < config["min_camera_path_m"])
+        if is_metric
+        else []
+    )
     with open(align_dir / "alignment.json", "w") as f:
         json.dump(report, f, indent=2)
     export_poses(model, align_dir / "poses.json")
@@ -320,4 +337,13 @@ def align_scene(out_dir: Path, config: dict) -> dict:
         f"  Scale mode: {mode} (metric={is_metric}), s={s:.4f}, "
         f"median camera height: {report['camera_height_median']:.3f}"
     )
+    paths = report["camera_path_length"]
+    print(f"  Camera path length: A {paths['A']:.2f}, B {paths['B']:.2f}")
+    if report["camera_path_short"]:
+        print(
+            f"  WARNING: the camera moved less than {config['min_camera_path_m']:g} m in "
+            f"{' and '.join(report['camera_path_short'])}. Objects then appear from few distinct "
+            "viewpoints and may not be confirmed; walk sideways past the area instead of turning "
+            "on the spot (README, recording tips)."
+        )
     return report

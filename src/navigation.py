@@ -26,7 +26,7 @@ from pathlib import Path
 import numpy as np
 
 from src.alignment import floor_is_reliable
-from src.utils.geometry import camera_center
+from src.utils.geometry import camera_center, in_box
 
 
 class Grid2D:
@@ -168,14 +168,6 @@ def densify(xy: np.ndarray, step: float) -> np.ndarray:
     return np.array(out)
 
 
-def footprint_contains(box: dict, xy: np.ndarray, margin: float) -> np.ndarray:
-    """True for xy points inside the box footprint grown by `margin`."""
-    c, s = np.cos(box["yaw_rad"]), np.sin(box["yaw_rad"])
-    local = (xy - np.array(box["center"][:2])) @ np.array([[c, -s], [s, c]])
-    half = np.array(box["extents"][:2]) / 2 + margin
-    return np.all(np.abs(local) <= half, axis=1)
-
-
 def present_boxes(changes: list[dict]) -> list[tuple[int, dict]]:
     """(change id, box) for objects that exist in B: added ones and moved ones' new place."""
     out = []
@@ -214,7 +206,7 @@ def check_route(
 
     blockers = []
     for cid, box in present_boxes(changes):
-        if np.any(newly & footprint_contains(box, route, cfg["robot_radius"])):
+        if np.any(newly & in_box(box, route, cfg["robot_radius"])):
             blockers.append(cid)
 
     result = {

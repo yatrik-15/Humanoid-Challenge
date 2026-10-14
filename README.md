@@ -229,8 +229,11 @@ venv\Scripts\pip install -r requirements.txt     # exact versions: requirements.
 DISK/LightGlue weights, Depth Anything V2 (relative and metric-indoor, small) and
 Qwen2-VL-2B-Instruct (4.4 GB) are downloaded on first use into `.hf_cache/`.
 
-Recording tips that matter: walk sideways rather than turning on the spot, keep textured
-furniture in view, avoid long stretches of blank wall or glossy floor, and keep screens off.
+Recording tips that matter: walk sideways rather than turning on the spot (the run warns
+when a recording's camera moved less than 1 m: objects are then seen from too few
+viewpoints to be confirmed), film objects from more than one side, keep textured furniture
+and some floor in view, avoid long stretches of blank wall, glossy floor or a dark window,
+and keep screens off.
 
 ## Evaluation
 
@@ -246,7 +249,7 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 58 tests
+python -m pytest        # 60 tests
 python -m ruff check .
 ```
 
@@ -279,8 +282,9 @@ replanned around it, never through unobserved space), the ROS map export and the
 
 ```
 run.py, config.yaml     entry point and every tunable
-src/                    frames, sfm, alignment, depth(_align), fusion, diff, cluster,
-                        navigation, baseline, semantics, viz, utils/geometry
+src/                    frames, sfm, pairs, alignment, depth(_align), fusion, diff, cluster,
+                        navigation, baseline, semantics, utils/geometry
+src/viz/                report, images, floor_map, render (3-D overview), rerun_export
 tests/                  unit tests, synthetic renderer and change test, synthetic videos
 eval/                   annotate.py (ground truth), run_eval.py, results/
 examples/<pair>/        input videos (bottle, stool, walkway) and every output of the run

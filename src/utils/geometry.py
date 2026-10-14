@@ -171,3 +171,17 @@ def rotation_aligning(a: np.ndarray, b: np.ndarray) -> np.ndarray:
         return 2.0 * np.outer(axis, axis) - np.eye(3)
     vx = np.array([[0, -v[2], v[1]], [v[2], 0, -v[0]], [-v[1], v[0], 0]])
     return np.eye(3) + vx + vx @ vx * (1.0 / (1.0 + c))
+
+
+def in_box(box: dict, X: np.ndarray, margin: float = 0.0) -> np.ndarray:
+    """True for points inside a gravity-aligned box (yaw about z only) grown by `margin`.
+
+    `box` has center, extents and yaw_rad. X is (N, 3), or (N, 2) to test only the footprint.
+    """
+    c, s = np.cos(box["yaw_rad"]), np.sin(box["yaw_rad"])
+    local = (X[:, :2] - np.asarray(box["center"][:2])) @ np.array([[c, -s], [s, c]])
+    half = np.asarray(box["extents"], dtype=np.float64) / 2 + margin
+    inside = np.all(np.abs(local) <= half[:2], axis=1)
+    if X.shape[1] == 3:
+        inside &= np.abs(X[:, 2] - box["center"][2]) <= half[2]
+    return inside

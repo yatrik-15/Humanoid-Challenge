@@ -40,6 +40,8 @@ alignment:
   ransac_iterations: 2000
   seed: 0
   fallback_floor_percentile: 2.0  # no plane found: z = 0 at this height percentile
+  min_camera_path_m: 1.0          # warn when a recording's camera path is shorter (turning on
+                                  #   the spot gives few viewpoints; walkway 3.1 m, hero v1 0.4 m)
   floor_camera_height_range: [1.1, 1.9]  # z = 0 counts as the floor (floor snapping, route
                                   #   check) only if the cameras are this high above it;
                                   #   above a mattress they are about 1 m
