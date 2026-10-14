@@ -13,13 +13,25 @@ jobs:
         with:
           python-version: "3.13"
       - name: System libraries for Open3D
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends libgl1 libgomp1
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends libgl1 libgomp1 libegl1 libx11-6 libusb-1.0-0 libglib2.0-0
       - name: Test dependencies (geometry only; the tests need no GPU and no model weights)
         run: |
           pip install numpy==2.5.3 scipy==1.18.1 open3d==0.20.0 pycolmap==4.2.1 pydantic==2.14.1 \
             opencv-python-headless==5.0.0.93 imageio==2.38.1 av==19.0.1 pyyaml==6.0.3 \
             scikit-learn==1.9.1 matplotlib==3.11.2 pillow==12.3.0 pytest==9.1.1 ruff==0.17.0
+      - name: Imports
+        run: |
+          for m in numpy scipy open3d pycolmap cv2 sklearn pydantic imageio av yaml; do
+            out=$(python -c "import $m" 2>&1) || { echo "::error title=import $m::$(echo "$out" | tail -1)"; exit 1; }
+          done
       - name: Lint
         run: ruff check . && ruff format --check .
       - name: Tests
-        run: python -m pytest -q
+        run: |
+          set -o pipefail
+          python -m pytest -q -rfE 2>&1 | tee pytest.log || {
+            grep -E "^(FAILED|ERROR)|Error" pytest.log | head -20 | while IFS= read -r line; do echo "::error title=pytest::$line"; done
+            exit 1
+          }
