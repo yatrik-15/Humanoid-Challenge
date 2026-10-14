@@ -1,6 +1,6 @@
 # What changed in the room
 
-Units: **approx. metres** (APPROXIMATE metres from monocular metric depth (median over frames)). World frame: +z up; z=0 is the dominant horizontal support plane found by RANSAC (the floor, or a bed/table top when the floor is not visible).
+Units: **approx. metres** (scale from monocular metric depth (median over frames)). World frame: +z up; z=0 is the dominant horizontal support plane found by RANSAC (the floor, or a bed/table top when the floor is not visible).
 
 Detected: **0 moved, 0 removed, 1 added**. Regions observed in only one recording are reported as UNKNOWN (296 evidence voxels), never as changes.
 

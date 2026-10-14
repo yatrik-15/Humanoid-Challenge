@@ -1,6 +1,6 @@
 # What changed in the room
 
-Units: **approx. metres** (APPROXIMATE metres from monocular metric depth (median over frames)). World frame: gravity from camera-up (no floor plane found).
+Units: **approx. metres** (scale from monocular metric depth (median over frames)). World frame: gravity from camera-up (no floor plane found).
 
 Detected: **0 moved, 0 removed, 0 added**. Regions observed in only one recording are reported as UNKNOWN (36 evidence voxels), never as changes.
 

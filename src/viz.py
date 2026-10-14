@@ -94,11 +94,17 @@ def _route_summary(out_dir: Path) -> dict | None:
     return {k: v for k, v in route.items() if k not in ("route", "blocked_points", "replanned")}
 
 
+def _label(c: dict) -> str:
+    """Label as shown to people: "(no label)" when the VLM gave no valid answer."""
+    return "(no label)" if c["label"] == "label_unavailable" else c["label"]
+
+
 def write_markdown(report: dict, path: Path) -> None:
+    source = report["scale_note"].replace("APPROXIMATE metres from ", "scale from ")
     L = [
         "# What changed in the room",
         "",
-        f"Units: **{report['units']}** ({report['scale_note']}). World frame: {report['world_frame']}.",
+        f"Units: **{report['units']}** ({source}). World frame: {report['world_frame']}.",
         "",
         f"Detected: **{report['counts']['moved']} moved, {report['counts']['removed']} removed, "
         f"{report['counts']['added']} added**. Regions observed in only one recording are reported "
@@ -115,7 +121,7 @@ def write_markdown(report: dict, path: Path) -> None:
             where = _fmt(c["centroid"])
             size = " x ".join(f"{e:.2f}" for e in c["box"]["extents"])
         L.append(
-            f"| {c['id']} | {c['action']} | {c['label']} | {c['label_confidence']:.2f} | {where} | {size} | "
+            f"| {c['id']} | {c['action']} | {_label(c)} | {c['label_confidence']:.2f} | {where} | {size} | "
             f"{c['supporting_view_groups']} |"
         )
     checked = [c for c in report["changes"] if c.get("label_check")]
@@ -134,11 +140,11 @@ def write_markdown(report: dict, path: Path) -> None:
             chk = c["label_check"]
             top = ", ".join(f"{n} ({g:+.3f})" for n, g in chk.get("top", []))
             gain = f"{chk['vlm_label_score']:+.3f}" if "vlm_label_score" in chk else "–"
-            L.append(f"| {c['id']} | {c['label']} | {chk['verdict']} | {gain} | {top} |")
+            L.append(f"| {c['id']} | {_label(c)} | {chk['verdict']} | {gain} | {top} |")
     L += ["", "## Descriptions", ""]
     for c in report["changes"]:
         L.append(
-            f"- **#{c['id']} {c['action']} — {c['label']}**: {c['description']}"
+            f"- **#{c['id']} {c['action']} — {_label(c)}**: {c['description']}"
             + (f" {c['spatial_summary']}" if c["spatial_summary"] else "")
         )
     path.write_text("\n".join(L) + "\n", encoding="utf-8")
@@ -151,7 +157,7 @@ def _fmt(v) -> str:
 def _boxes(report: dict):
     """Yield (box dict, action, label text, which) for every box in the report."""
     for c in report["changes"]:
-        name = "object" if c["label"] == "label_unavailable" else c["label"]
+        name = "object" if c["label"] == "label_unavailable" else c["label"]  # box labels stay short
         if c["action"] == "moved":
             yield c["box_before"], "moved", f"#{c['id']} {name} (before)", "before"
             yield c["box_after"], "moved", f"#{c['id']} {name} (after)", "after"

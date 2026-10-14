@@ -3,6 +3,7 @@ name = "room-change"
 version = "0.1.0"
 description = "3-D change detection between two phone videos of the same room"
 requires-python = ">=3.11"
+license = "MIT"
 
 [tool.ruff]
 line-length = 110
