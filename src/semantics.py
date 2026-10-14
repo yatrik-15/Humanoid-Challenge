@@ -14,6 +14,11 @@ recording's render x projected box area (capped, with a penalty for boxes cut by
 border). Removed: best A view + B view of the same place; added: the reverse; moved: best
 A view of the old box + best B view of the new one.
 
+Optional label check (`label_check.enabled`): SigLIP scores the 80 COCO names plus the VLM
+label on a tight crop of the view WITH the object and of the view WITHOUT it; the difference
+flags labels that fit the empty view better and changes where nothing recognisable appeared or
+disappeared. It adds `label_check` to labels.json and never changes the label or the geometry.
+
 Reads  cluster/changes.json, diff/evidence.npz, align/poses.json, align/alignment.json,
        fusion/grid_{A,B}.npz, sfm/undistorted/images/
 Writes semantics/crops/*.jpg, semantics/labels.json
@@ -258,6 +263,107 @@ class LocalQwenVL:
         return self.processor.batch_decode(new, skip_special_tokens=True)[0]
 
 
+# Candidate names for the label check: the 80 COCO classes, a fixed public list (not chosen
+# for the recordings in this repo), plus whatever the VLM said.
+COCO_CLASSES = (
+    "person,bicycle,car,motorcycle,airplane,bus,train,truck,boat,traffic light,fire hydrant,stop sign,"
+    "parking meter,bench,bird,cat,dog,horse,sheep,cow,elephant,bear,zebra,giraffe,backpack,umbrella,"
+    "handbag,tie,suitcase,frisbee,skis,snowboard,sports ball,kite,baseball bat,baseball glove,skateboard,"
+    "surfboard,tennis racket,bottle,wine glass,cup,fork,knife,spoon,bowl,banana,apple,sandwich,orange,"
+    "broccoli,carrot,hot dog,pizza,donut,cake,chair,couch,potted plant,bed,dining table,toilet,tv,laptop,"
+    "mouse,remote,keyboard,cell phone,microwave,oven,toaster,sink,refrigerator,book,clock,vase,scissors,"
+    "teddy bear,hair drier,toothbrush"
+).split(",")
+
+
+class SigLIPScorer:
+    """SigLIP image-text scores (independent sigmoid per pair), fp16 on CUDA if available."""
+
+    def __init__(self, model_id: str):
+        import torch
+        from transformers import AutoModel, AutoProcessor
+
+        self.torch = torch
+        self.device = "cuda" if torch.cuda.is_available() else "cpu"
+        dtype = torch.float16 if self.device == "cuda" else torch.float32
+        self.processor = AutoProcessor.from_pretrained(model_id)
+        self.model = AutoModel.from_pretrained(model_id, dtype=dtype).to(self.device).eval()
+        print(f"  label check: {model_id} on {self.device}")
+
+    def scores(self, images: list[np.ndarray], names: list[str]) -> np.ndarray:
+        """(n_images, n_names) probabilities that the image shows each name."""
+        from PIL import Image
+
+        inputs = self.processor(
+            text=[f"This is a photo of a {n}." for n in names],
+            images=[Image.fromarray(i) for i in images],
+            padding="max_length",  # SigLIP was trained with max-length padding
+            return_tensors="pt",
+        ).to(self.device)
+        with self.torch.no_grad():
+            logits = self.model(**inputs).logits_per_image.float()
+        return self.torch.sigmoid(logits).cpu().numpy()
+
+
+def tight_crop(img: np.ndarray, box: tuple[int, int, int, int], pad_rel: float) -> np.ndarray:
+    """Square crop around a pixel box, without the outline (the image encoder would see it)."""
+    H, W = img.shape[:2]
+    x0, y0, x1, y1 = box
+    half = max(x1 - x0, y1 - y0) * (1 + 2 * pad_rel) / 2
+    cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
+    return img[
+        int(max(0, cy - half)) : int(min(H, cy + half)), int(max(0, cx - half)) : int(min(W, cx + half))
+    ]
+
+
+def label_verdict(diff: np.ndarray, names: list[str], vlm_label: str | None, min_evidence: float) -> dict:
+    """Judge the VLM label from per-name score differences (object view minus empty view).
+
+    The difference cancels whatever both views share (wall, bed, floor), so it measures what
+    appeared or disappeared. `names[0]` is the VLM label when there is one.
+      no_visible_object   no name gains more than `min_evidence`: nothing recognisable changed
+      label_contradicted  the VLM label fits the EMPTY view better than the object view
+      label_supported     otherwise (`vlm_rank` says how it compares with the COCO names)
+    """
+    order = np.argsort(-diff)
+    out = {
+        "object_evidence": round(float(diff.max()), 4),
+        "top": [[names[i], round(float(diff[i]), 4)] for i in order[:3]],
+    }
+    if vlm_label is not None:
+        out["vlm_label_score"] = round(float(diff[0]), 4)
+        out["vlm_rank"] = int((diff > diff[0]).sum()) + 1
+    if diff.max() < min_evidence:
+        out["verdict"] = "no_visible_object"
+    elif vlm_label is not None and diff[0] <= 0:
+        out["verdict"] = "label_contradicted"
+    else:
+        out["verdict"] = "label_supported"
+    return out
+
+
+def check_labels(results: list[dict], view_images: dict[int, dict[str, np.ndarray]], cfg: dict) -> None:
+    """Add a `label_check` entry to each added/removed result (moved changes are not checked:
+    no view shows the old place empty from the after recording)."""
+    scorer = SigLIPScorer(cfg["model"])
+    for res in results:
+        views = view_images.get(res["id"], {})
+        if res["action"] == "moved" or len(views) != 2:
+            res["label_check"] = {"verdict": "not_checked"}
+            continue
+        present, absent = ("B", "A") if res["action"] == "added" else ("A", "B")
+        vlm = None if res["object"] == "label_unavailable" else res["object"].strip().lower()
+        names = ([vlm] if vlm else []) + [c for c in COCO_CLASSES if c != vlm]
+        s = scorer.scores([views[present], views[absent]], names)
+        res["label_check"] = {
+            "model": cfg["model"],
+            **label_verdict(s[0] - s[1], names, vlm, cfg["min_object_evidence"]),
+        }
+        print(
+            f"  change {res['id']}: label check -> {res['label_check']['verdict']} {res['label_check']['top'][0]}"
+        )
+
+
 def make_backend(cfg: dict):
     if cfg["backend"] == "local":
         return LocalQwenVL(cfg["local_model"], cfg["device"], cfg["max_pixels"], cfg["max_new_tokens"])
@@ -354,16 +460,17 @@ def label_changes(out_dir: Path, cfg: dict, fusion_cfg: dict) -> list[dict]:
 
     backend = make_backend(cfg) if changes else None
     results = []
+    view_images: dict[int, dict[str, np.ndarray]] = {}  # tight crops for the label check
     for ch, views in zip(changes, plans):
         imgs, used = [], []
+        view_images[ch["id"]] = {}
         for epoch, bv in views:
             if bv is None:
                 continue
             name, box, score = bv
-            bgr = cv2.imread(str(img_dir / name), cv2.IMREAD_COLOR)
-            c = crop_with_outline(
-                cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB), box, cfg["crop_pad_rel"], cfg["crop_min_px"]
-            )
+            rgb = cv2.cvtColor(cv2.imread(str(img_dir / name), cv2.IMREAD_COLOR), cv2.COLOR_BGR2RGB)
+            c = crop_with_outline(rgb, box, cfg["crop_pad_rel"], cfg["crop_min_px"])
+            view_images[ch["id"]][epoch] = tight_crop(rgb, box, cfg["label_check"]["crop_pad_rel"])
             path = sdir / "crops" / f"change{ch['id']:02d}_{epoch}.jpg"
             cv2.imwrite(str(path), cv2.cvtColor(c, cv2.COLOR_RGB2BGR))
             imgs.append(c)
@@ -380,6 +487,16 @@ def label_changes(out_dir: Path, cfg: dict, fusion_cfg: dict) -> list[dict]:
         res.update({"id": ch["id"], "action": ch["action"], "views": used})
         results.append(res)
         print(f"  change {ch['id']}: {ch['action']:8s} -> {res['object']} (conf {res['confidence']})")
+    if results and cfg["label_check"]["enabled"]:
+        if backend is not None:  # free the VLM's GPU memory first (6 GB card)
+            import gc
+
+            import torch
+
+            del backend
+            gc.collect()
+            torch.cuda.empty_cache()
+        check_labels(results, view_images, cfg["label_check"])
     with open(sdir / "labels.json", "w") as f:
         json.dump(results, f, indent=2)
     return results

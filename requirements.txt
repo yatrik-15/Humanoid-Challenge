@@ -15,7 +15,9 @@ lightglue @ git+https://github.com/cvg/LightGlue
 kornia
 
 open3d>=0.20
-transformers>=5.0          # Depth Anything V2, Qwen2-VL
+transformers>=5.0          # Depth Anything V2, Qwen2-VL, SigLIP
+sentencepiece              # SigLIP tokenizer
+protobuf
 huggingface-hub
 imageio[pyav]
 opencv-python-headless

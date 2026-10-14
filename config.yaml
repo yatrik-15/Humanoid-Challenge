@@ -29,8 +29,10 @@ sfm:
 
 alignment:
   floor_ransac_threshold_rel: 0.01  # plane inlier distance, as a fraction of scene scale L
-  floor_min_inliers_ratio: 0.03   # minimum share of sparse points on the plane (a glossy
-                                  #   tiled floor among furniture gave 3.9 %)
+  floor_min_inliers_ratio: 0.02   # minimum share of sparse points on the plane. A glossy
+                                  #   tiled floor among furniture gave 3.9 % and, from frames
+                                  #   sampled 0.1 s apart, 3.0 %; pairs without a visible
+                                  #   floor give no candidate at all
   max_tilt_deg: 30.0              # plane normal vs. mean camera up
   max_below_ratio: 0.05           # reject planes with more points below them (table tops)
   ransac_iterations: 2000
@@ -142,11 +144,19 @@ semantics:
                                   #   with some context win over extreme close-ups
   crop_pad_rel: 0.25              # crop padding relative to the projected box
   crop_min_px: 96
+  label_check:                    # SigLIP check of the VLM label; flags only, changes nothing
+    enabled: false                # off: misled on the walkway pair (DEVLOG)
+    model: "google/siglip-base-patch16-224"
+    min_object_evidence: 0.01     # below this no name gains between the empty and object view
+    crop_pad_rel: 0.15            # tight crop, no outline
 
 viz:
   rerun_enabled: true
   mp4_enabled: true
   floor_map_enabled: true
+  overview_enabled: true          # scene_3d.png / .gif: fused A and B from one virtual camera
+  overview_size: [960, 720]       # per panel
+  overview_orbit_deg: 30          # gif orbits +- this about the vertical axis
   bbox_color_added: [0, 200, 0]
   bbox_color_removed: [230, 30, 30]
   bbox_color_moved: [255, 165, 0]

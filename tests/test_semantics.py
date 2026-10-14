@@ -98,3 +98,21 @@ def test_retry_prompt_carries_the_validation_error():
     assert vlm.calls == 2 and res["object"] == "cup"
     assert "invalid" not in prompts[0]
     assert "previous answer was invalid" in prompts[1] and "action" in prompts[1]
+
+
+def test_label_verdict_flags_empty_change_and_contradicted_label():
+    from src.semantics import label_verdict
+
+    names = ["cup", "bottle", "chair"]
+    # object view gains on the VLM label -> supported, best name reported first
+    v = label_verdict(np.array([0.12, 0.004, 0.0]), names, "cup", 0.01)
+    assert v["verdict"] == "label_supported" and v["vlm_rank"] == 1 and v["top"][0][0] == "cup"
+    # VLM label fits the empty view better, while another name does gain -> contradicted
+    v = label_verdict(np.array([-0.55, 0.13, 0.08]), ["wall", "couch", "bench"], "wall", 0.01)
+    assert v["verdict"] == "label_contradicted" and v["vlm_rank"] == 3
+    # nothing gains -> no visible object, whatever the VLM said
+    v = label_verdict(np.array([0.0005, 0.005, 0.002]), ["desk", "sink", "bench"], "desk", 0.01)
+    assert v["verdict"] == "no_visible_object"
+    # no VLM label at all: still judged on the COCO names
+    v = label_verdict(np.array([0.3, 0.0]), ["chair", "cup"], None, 0.01)
+    assert v["verdict"] == "label_supported" and "vlm_rank" not in v
