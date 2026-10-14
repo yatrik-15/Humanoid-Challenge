@@ -159,14 +159,80 @@ def _boxes(report: dict):
             yield c["box"], c["action"], f"#{c['id']} {name} ({c['action']})", None
 
 
+def simplify_mesh(mesh: dict, max_triangles: int) -> dict:
+    """Quadric decimation to at most `max_triangles` (vertex colours are kept)."""
+    import open3d as o3d
+
+    if len(mesh["triangles"]) <= max_triangles:
+        return mesh
+    m = o3d.geometry.TriangleMesh(
+        o3d.utility.Vector3dVector(mesh["vertices"]),
+        o3d.utility.Vector3iVector(mesh["triangles"].astype(np.int32)),
+    )
+    m.vertex_colors = o3d.utility.Vector3dVector(mesh["colors"])
+    m = m.simplify_quadric_decimation(max_triangles)
+    m.compute_vertex_normals()
+    return {
+        "vertices": np.asarray(m.vertices),
+        "triangles": np.asarray(m.triangles, np.int64),
+        "colors": np.clip(np.asarray(m.vertex_colors), 0, 1),
+        "normals": np.asarray(m.vertex_normals),
+    }
+
+
+def log_extras(out_dir: Path, e: str, s: str, cfg: dict, poses: dict, ev, rng) -> None:
+    """Surface points, every camera frustum and the evidence voxels of one recording."""
+    import rerun as rr
+
+    names = sorted(n for n, p in poses.items() if p["epoch"] == e)
+    c = np.load(out_dir / "fusion" / f"cloud_{e}.npz")
+    pts, cols = c["points"], c["colors"]
+    if len(pts) > cfg["max_cloud_points"]:
+        idx = rng.choice(len(pts), cfg["max_cloud_points"], replace=False)
+        pts, cols = pts[idx], cols[idx]
+    rr.log(
+        f"world/{s}/points",
+        rr.Points3D(pts, colors=(np.clip(cols, 0, 1) * 255).astype(np.uint8), radii=cfg["point_radius"]),
+        static=True,
+    )
+    for n in names:
+        T_wc = invert_pose(np.array(poses[n]["T_cw"]))
+        ent = f"world/{s}/cameras/{Path(n).stem}"
+        rr.log(ent, rr.Transform3D(translation=T_wc[:3, 3], mat3x3=T_wc[:3, :3]), static=True)
+        rr.log(
+            ent,
+            rr.Pinhole(
+                image_from_camera=np.array(poses[n]["K"]),
+                resolution=[poses[n]["width"], poses[n]["height"]],
+                camera_xyz=rr.ViewCoordinates.RDF,
+                image_plane_distance=cfg["frustum_size"],
+            ),
+            static=True,
+        )
+    k = "removed" if e == "A" else "added"
+    if len(ev[f"{k}_points"]):
+        rr.log(
+            f"world/{s}/evidence/{k}",
+            rr.Points3D(ev[f"{k}_points"], colors=_color(cfg, k), radii=cfg["point_radius"]),
+            static=True,
+        )
+    if len(ev["unknown_points"]):
+        rr.log(
+            f"world/{s}/evidence/unknown",
+            rr.Points3D(ev["unknown_points"], colors=[150, 150, 150], radii=cfg["point_radius"]),
+            static=True,
+        )
+
+
 def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict[str, dict]) -> None:
     """Rerun recording that opens on a ready layout: BEFORE and AFTER 3-D views side by side,
     both starting from the overview camera, and the report next to them.
 
     world/before (A): surface mesh, camera path, removed boxes and old positions of moves
     world/after  (B): surface mesh, camera path, added boxes and new positions of moves
-    Also logged but hidden by default (tick them in the viewer's tree): every camera
-    frustum, the fused surface points, and the evidence voxels (unknown in grey)."""
+    Meshes are simplified to `rerun_mesh_triangles` so the file loads quickly in the web
+    viewer. With `rerun_extras`, every camera frustum, the fused surface points and the
+    evidence voxels (unknown in grey) are also logged, hidden by default."""
     import rerun as rr
     import rerun.blueprint as rrb
 
@@ -206,7 +272,7 @@ def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict
     ev = np.load(out_dir / "diff" / "evidence.npz")
     rng = np.random.default_rng(0)
     for e, s in side.items():
-        m = meshes[e]
+        m = simplify_mesh(meshes[e], cfg["rerun_mesh_triangles"])
         rr.log(
             f"world/{s}/surface",
             rr.Mesh3D(
@@ -217,16 +283,8 @@ def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict
             ),
             static=True,
         )
-        c = np.load(out_dir / "fusion" / f"cloud_{e}.npz")
-        pts, cols = c["points"], c["colors"]
-        if len(pts) > cfg["max_cloud_points"]:
-            idx = rng.choice(len(pts), cfg["max_cloud_points"], replace=False)
-            pts, cols = pts[idx], cols[idx]
-        rr.log(
-            f"world/{s}/points",
-            rr.Points3D(pts, colors=(np.clip(cols, 0, 1) * 255).astype(np.uint8), radii=cfg["point_radius"]),
-            static=True,
-        )
+        if cfg["rerun_extras"]:
+            log_extras(out_dir, e, s, cfg, poses, ev, rng)
         names = sorted(n for n, p in poses.items() if p["epoch"] == e)
         C = np.array([camera_center(np.array(poses[n]["T_cw"])) for n in names])
         col = [80, 140, 255] if e == "A" else [255, 170, 60]
@@ -235,20 +293,6 @@ def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict
             rr.LineStrips3D([C], colors=[col], radii=0.008, labels=[f"camera path {e}"]),
             static=True,
         )
-        for n in names:
-            T_wc = invert_pose(np.array(poses[n]["T_cw"]))
-            ent = f"world/{s}/cameras/{Path(n).stem}"
-            rr.log(ent, rr.Transform3D(translation=T_wc[:3, 3], mat3x3=T_wc[:3, :3]), static=True)
-            rr.log(
-                ent,
-                rr.Pinhole(
-                    image_from_camera=np.array(poses[n]["K"]),
-                    resolution=[poses[n]["width"], poses[n]["height"]],
-                    camera_xyz=rr.ViewCoordinates.RDF,
-                    image_plane_distance=cfg["frustum_size"],
-                ),
-                static=True,
-            )
         mine = [(b, a, t) for b, a, t, w in boxes if _shown(a, w, e)]
         if mine:
             rr.log(
@@ -263,19 +307,6 @@ def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict
                     labels=[t for _, _, t in mine],
                     radii=0.01,
                 ),
-                static=True,
-            )
-        k = "removed" if e == "A" else "added"
-        if len(ev[f"{k}_points"]):
-            rr.log(
-                f"world/{s}/evidence/{k}",
-                rr.Points3D(ev[f"{k}_points"], colors=_color(cfg, k), radii=cfg["point_radius"]),
-                static=True,
-            )
-        if len(ev["unknown_points"]):
-            rr.log(
-                f"world/{s}/evidence/unknown",
-                rr.Points3D(ev["unknown_points"], colors=[150, 150, 150], radii=cfg["point_radius"]),
                 static=True,
             )
     moved = [c for c in report["changes"] if c["action"] == "moved"]

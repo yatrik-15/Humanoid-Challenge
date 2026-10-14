@@ -160,7 +160,9 @@ viz:
   bbox_color_added: [0, 200, 0]
   bbox_color_removed: [230, 30, 30]
   bbox_color_moved: [255, 165, 0]
-  max_cloud_points: 300000        # subsample clouds in the .rrd above this
+  rerun_mesh_triangles: 40000     # surface meshes in the .rrd are simplified to this (load time)
+  rerun_extras: false             # also log points, every camera frustum, evidence voxels
+  max_cloud_points: 300000        # subsample clouds in the .rrd above this (rerun_extras)
   point_radius: 0.005
   frustum_size: 0.1
   mp4_fps: 2

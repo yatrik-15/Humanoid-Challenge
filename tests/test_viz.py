@@ -61,3 +61,24 @@ def test_vertical_structure_marks_walls_not_a_tilted_floor():
     v = vertical_structure(np.vstack([floor, wall]), grid, 0.15, 3)
     assert v[20, :].all()  # the wall column
     assert not v[5, :].any() and not v[35, :].any()  # floor on both sides
+
+
+def test_simplify_mesh_keeps_colours_and_respects_the_budget():
+    from src.viz import simplify_mesh
+
+    n = 60
+    xs, ys = np.meshgrid(np.linspace(0, 1, n), np.linspace(0, 1, n))
+    v = np.c_[xs.ravel(), ys.ravel(), np.zeros(n * n)]
+    idx = np.arange(n * n).reshape(n, n)
+    a, b, c, d = idx[:-1, :-1].ravel(), idx[:-1, 1:].ravel(), idx[1:, 1:].ravel(), idx[1:, :-1].ravel()
+    tris = np.vstack([np.c_[a, b, c], np.c_[a, c, d]])
+    mesh = {
+        "vertices": v,
+        "triangles": tris,
+        "colors": np.tile([0.2, 0.6, 0.9], (n * n, 1)),
+        "normals": np.tile([0, 0, 1.0], (n * n, 1)),
+    }
+    small = simplify_mesh(mesh, 500)
+    assert len(small["triangles"]) <= 500
+    assert np.allclose(small["colors"], [0.2, 0.6, 0.9], atol=1e-6)
+    assert simplify_mesh(mesh, 10**6) is mesh  # under budget: untouched

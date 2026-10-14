@@ -22,7 +22,6 @@
 
 ### Decisions
 - **Python 3.13** is supported by both pycolmap and open3d. No downgrade needed.
-- **Project moved to Y:\Humanoid** due to limited disk space on C: (~50 GB vs ~63 GB on Y:).
 - **ffmpeg** not on PATH; will install `imageio[ffmpeg]` which bundles its own ffmpeg binary.
 - **Depth model**: will use `small` (vits) variant of Depth Anything V2 to fit in 6 GB VRAM.
 - **VoxelBlockGrid** (Open3D tensor API) will be used for TSDF fusion — need to verify exact
@@ -723,3 +722,9 @@ vase, window area).
   floor or bed top. With the band rule the stool map showed the whole floor as obstacle.
   The map title states the rule used. Test: a wall is marked, a floor tilted 22 deg and
   offset from z = 0 is not. `pytest` -> 55 passed.
+- Rerun files slimmed for the web viewer: 6.0 / 8.9 / 7.5 MB -> 1.7 / 1.8 / 1.8 MB
+  (bottle / stool / walkway). The meshes were most of it (stool B: 141 k triangles,
+  75 k vertices); they are now simplified by quadric decimation to 40 k triangles per
+  recording, vertex colours kept (1.4 s each). Points, frustums and evidence voxels,
+  hidden by default anyway, are only logged with `viz.rerun_extras: true`. The gif and
+  png still use the full meshes. `pytest` -> 56 passed.

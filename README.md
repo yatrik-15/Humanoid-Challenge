@@ -12,7 +12,7 @@ against the path a robot would walk: if a change now blocks it, a new route is p
 camera. Left: before. Right: after, with the surface of the added bottle tinted green. The full report is
 [`examples/bottle/report.md`](examples/bottle/report.md).*
 
-**Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside; every camera frustum, the raw points and the unknown regions can be switched on in the entity tree.
+**Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
 
 ## Results on real recordings
 
@@ -116,7 +116,7 @@ needs `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally 
 | `side_by_side.mp4` | each B frame next to the closest A frame, change boxes projected in |
 | `floor_map.png` | top-down map of the after-room: floor seen empty / obstacle / never observed, change footprints, move arrows, both camera paths, and the route check |
 | `nav/route.json`, `nav/map_{A,B}.pgm/.yaml` | route check result and ROS `map_server` occupancy maps (only when the floor is in view) |
-| `changes.rrd` | Rerun recording that opens on a BEFORE / AFTER layout: surface meshes, camera paths, change boxes, move arrows; frustums, points and evidence voxels toggleable |
+| `changes.rrd` | Rerun recording that opens on a BEFORE / AFTER layout: surface meshes, camera paths, change boxes, move arrows (frustums, points and evidence voxels with `viz.rerun_extras`) |
 
 Re-run only the later stages after changing a setting:
 `python run.py --out out/bottle --stages diff,cluster,semantics,viz`.
@@ -214,7 +214,7 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 55 tests
+python -m pytest        # 56 tests
 python -m ruff check .
 ```
 
