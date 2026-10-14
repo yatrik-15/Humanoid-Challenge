@@ -9,3 +9,14 @@ Detected: **0 moved, 0 removed, 0 added**. Regions observed in only one recordin
 
 ## Descriptions
 
+## Visuals
+
+Both recordings fused in 3-D, seen from one virtual camera (left before, right after):
+
+![3-D overview](scene_3d.png)
+
+Top-down map (filled = there now, dashed = gone or old position):
+
+<img src="floor_map.png" width="520" alt="top-down change map">
+
+The input videos of this pair are not included (size); the outputs above come from them.

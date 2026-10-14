@@ -568,3 +568,134 @@ unchanged). Logs `out/logs/final_run{,2}.log`.
   camera (its inliers sit 1.23-1.51 m below the cameras along the estimated up) but tilted
   22 deg from that up; the phone was visibly rolled, which the x-axis up estimate assumes
   away. Camera height 0.88 m, so floor snapping and the route check stayed off.
+
+## Cleanup of unused items (2026-10-14)
+
+- Ball pair (`New_change_A/B`) is no longer processed; it stays in the README only as the
+  glossy-floor / screen limitation. Its outputs `out/new_change/` (437 MB) were deleted; the
+  recordings and `out/logs/new_change_run.log` are kept as evidence.
+- Deleted two Hugging Face models nothing references (google/siglip-base-patch16-224,
+  openai/clip-vit-base-patch32; about 2 GB) and the Python/pytest/ruff caches.
+- Checked the code: every function is referenced and every config key is read, so no code
+  was removed.
+
+## SigLIP label check (2026-10-14)
+
+Added an optional check after the VLM (`semantics.label_check`, now on by default). SigLIP
+scores the VLM label plus the 80 COCO class names (a fixed public list, not picked for these
+recordings) on a tight crop of the view with the object and of the view without it. The
+score difference cancels the shared background. Verdicts: `no_visible_object` (no name gains
+>= `min_object_evidence` 0.01), `label_contradicted` (the VLM label fits the empty view
+better), else `label_supported`. It adds `label_check` to labels.json and a table to
+report.md; labels and detections are not changed. Moved changes are not checked.
+New deps: sentencepiece, protobuf (SigLIP tokenizer). Test: `test_label_verdict_*`; 50 passed.
+
+Truth from the crops: bottle #0 black tumbler added; stool #0 stool removed, #1 other half of
+the stool removed, #2 false (dark floor under the stool), #3 false (blank wall).
+
+| change | VLM | base: verdict (VLM gain; best) | so400m: VLM gain; best |
+|---|---|---|---|
+| bottle 0 | cup | supported (+0.042; cup, bottle +0.027) | +0.121; cup, bottle +0.004 |
+| stool 0 | footstool | supported (+0.808) | +0.906 |
+| stool 1 | wall | **contradicted** (-0.083; couch +0.073) | -0.554; couch +0.128 |
+| stool 2 (false) | desk | **no_visible_object** (max +0.0028) | max +0.0050 |
+| stool 3 (false) | stool | **no_visible_object** (max +0.0003) | max +0.0052 |
+
+- Both false changes flagged, no real change flagged; both wrong labels on real changes
+  that could be checked ("wall") flagged. Max gain: real 0.042-0.808, false <= 0.005.
+- It does not improve naming: both models prefer "cup" to "bottle" on the tumbler, and
+  "couch" for the stool half is not right either. The VLM label is never replaced.
+- The 0.01 threshold was chosen after seeing these 5 changes; it is not validated on
+  held-out data. Not used to drop detections for that reason.
+- Base model chosen (0.8 GB; so400m 3.5 GB gives the same verdicts with wider margins).
+  so400m removed from the cache again.
+
+### Held-out check on the walkway pair — did not hold; turned off by default
+
+`run.py --out out/multi --stages semantics,viz` (log `out/logs/multi_labelcheck.log`).
+Truth from the crops: #0 bag moved (real); #1 "removed" is the spot where B shows the ADDED
+bottle (A shows the empty corner), so the detection is wrong; #2, #3, #4 are false (static
+vase, window area).
+
+| change | truth | VLM | check |
+|---|---|---|---|
+| 0 moved | bag moved | backpack | not_checked |
+| 1 removed | wrong (bottle was added here) | vase | supported (vase +0.082) |
+| 2 added | false, vase static | vase | supported (vase +0.177) |
+| 3 added | false, window + vase top | vase | supported (vase +0.333) |
+| 4 added | false, dark window | trash can | contradicted (best cup +0.039) |
+
+- 0 of 3 false changes reached `no_visible_object`; the max gains (0.04-0.33) overlap the
+  real changes on the other pairs (0.04-0.81), so no threshold separates them.
+- Cause: the method assumes the with/without views frame the same place the same way. Here
+  the two views come from different viewpoints and the static vase falls inside one tight
+  crop and not the other, so "vase" gains. On the stool pair the background was plain wall.
+- "label_supported" on a false change is misleading in a report, so `enabled: false` again.
+  Code, test and config kept for anyone who wants the flags.
+
+## Shippable examples, 3-D overview, ROS maps (2026-10-14)
+
+- Example inputs: the bottle, stool and walkway pairs re-encoded for the repository
+  (same 1080 x 1920 resolution, 10 fps, H.264 CRF 23, no audio, rotation applied to the
+  pixels): 12-18 MB per video, `examples/<pair>/input/`. The pipeline samples 2 fps, so
+  10 fps loses nothing. Each example was re-run from these files end to end
+  (`out/ex_<pair>`, logs `out/logs/ex_<pair>.log`); `examples/<pair>/` holds that run's outputs.
+- Bottle from the re-encoded videos: 127/127 registered, 0.969 px, scale 0.0353 m/unit
+  (43 frames), 1 added at (-0.18, 1.99, 0.19), 4 view groups; label now "water bottle"
+  (0.8). Baseline 6 false. Same detection as the original-video run.
+- New viz output `scene_3d.png/.gif`: fused A and B rendered from one elevated virtual
+  camera (z-buffered point splats, one voxel wide at their depth), change boxes and camera
+  paths drawn in; the gif orbits +-30 deg. The focal length and principal point are fitted
+  so 98 % of B's points fill the frame. Test: nearest point wins, points behind the camera
+  are dropped.
+- New nav output: both occupancy grids written as ROS `map_server` maps (trinary PGM +
+  YAML, 0 occupied / 254 free / 205 unknown as map_saver writes them; free = floor
+  reconstructed and nothing in the obstacle band). Walkway: 142 x 70 cells at 5 cm; map B
+  shows the bag across the corridor where map A has it at its old place. Test checks the
+  image orientation, values and origin.
+- Box labels in projected views now have a dark outline.
+- `pytest` -> 52 passed.
+- Stool from the re-encoded videos (`--known_focal_rel 1.64`): 153/153 registered, 1.66 px,
+  f = 1476 px, k = 0.030. **Stool removed** as one cluster ("footstool", 0.54 x 0.57 x 0.46,
+  5 view groups) and 1 false added (blank wall, labelled "green ball" because the unmoved
+  ball is in the crop). Earlier run: the stool split in two and 2 false added. Baseline: 5
+  clusters, 4 of them pieces of the stool.
+- Walkway from the re-encoded videos, first run: **floor not found**. Same plane as before
+  (7.9 deg from camera-up, cameras 1.28 m above it) but holding 2.97 % of the sparse points
+  against the 3 % cutoff (3.9 % in the earlier run). Without the floor, no floor snapping
+  and no route check, and the bag came out as separate removed + added clusters. The
+  cutoff was too close to the values this floor produces: `floor_min_inliers_ratio`
+  0.03 -> 0.02. Checked on every run: static and keyboard have no candidate plane at all,
+  stool 4.7-5.6 %, bottle and synthetic 47-56 %, so only the walkway pair is affected.
+- Walkway re-run from align: **bag moved 1.13 m** (13 view groups); **the ball's old spot
+  found** as removed (A shows the ball, B the empty floor; missed in the earlier run); 4
+  false at the window end (static vase reported as moved and as added, dark window
+  twice). Baseline: 20 clusters, 7 near real changes.
+- **Route check planned through unobserved space.** The replanned route on the walkway ran
+  through cells neither recording saw: A* treated every non-occupied cell as free. Now the
+  new route may only use known-traversable cells: floor reconstructed in either recording
+  (grown by one cell) or within the robot radius of either walked path (the floor under
+  the walker is rarely in view: only 52-72 % of route cells have floor points on the
+  walkway and synthetic runs). Test: with the far side of the corridor unobserved, the
+  detour goes the other way; with only the blocked corridor known, there is no route.
+- **The route check is not informative on the walkway pair.** The corridor between bed and
+  wardrobe reconstructs narrower than a 0.5 m wide robot: 107 of the route's cells are
+  already blocked in A's own map, and only the remaining few can count as newly blocked.
+  The shipped run reports 6 cells near the start, not attributed to any change; the
+  earlier run reported 11 attributed to the bag. A pair meant for the route check needs a
+  path at least 1 m wide.
+- Example stills now use the before/after views the semantic stage chose for the first
+  change (best unoccluded view of the object and of the same place in the other recording)
+  instead of the nearest-pose pairing of the side-by-side video, which gave a removed
+  object's frame without the object in it.
+- `pytest` -> 53 passed.
+- 3-D overview quality: the first gif showed square splat blocks, rows of pinholes on walls
+  oblique to the voxel grid (missing surface points, background showing through) and
+  speckle from per-frame GIF palettes. Now: splats rendered at 2x and averaged down,
+  enclosed holes up to 9 px (at 2x) inpainted without growing the silhouette, one shared
+  palette for all frames and no dithering, labels on a dark plate ("object" when the VLM
+  gave no valid label). Gifs 1.5-2.7 MB. All example visuals regenerated.
+- report.md now ends with a "Visuals" section embedding the outputs next to it (3-D
+  overview, floor map, links to the side-by-side video and the Rerun file). Each
+  `examples/<pair>/` folder has a README.md (the report plus the visuals that ship there,
+  the browser viewer link and the input videos), so opening the folder on GitHub shows it.
