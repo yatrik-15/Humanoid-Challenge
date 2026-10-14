@@ -24,6 +24,8 @@ from hloc import (
     reconstruction,
 )
 
+from src.pairs import windowed_pairs
+
 
 def get_feature_conf(feature_type: str, max_keypoints: int) -> dict:
     """Get hloc feature extraction configuration.
@@ -122,6 +124,9 @@ def run_joint_sfm(out_dir: Path, config: dict) -> pycolmap.Reconstruction:
             output=pairs_path,
             image_list=image_list,
         )
+    elif config["match_pairs"] == "windowed":
+        pairs = windowed_pairs(image_list, config["pair_window"], config["pair_cross_stride"])
+        pairs_path.write_text("".join(f"{a} {b}\n" for a, b in pairs))
     else:
         # Retrieval-based pairing (uses NetVLAD)
         from hloc import pairs_from_retrieval

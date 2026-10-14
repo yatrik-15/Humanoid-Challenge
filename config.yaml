@@ -15,7 +15,9 @@ sfm:
                                   #   SuperGluePretrainedNetwork submodule)
   matcher_type: "lightglue"       # "lightglue" | "superglue"
   max_keypoints: 4096
-  match_pairs: "exhaustive"       # "exhaustive" | "retrieval" (NetVLAD)
+  match_pairs: "exhaustive"       # "exhaustive" | "windowed" | "retrieval" (NetVLAD)
+  pair_window: 10                 # windowed: each frame with the next N of the same video
+  pair_cross_stride: 3            # windowed: each A frame with every Nth B frame
   retrieval_top_k: 20             # retrieval only
   camera_model: "SIMPLE_RADIAL"   # one camera shared by both videos
   known_focal_rel: null           # focal length / image width of the phone, kept fixed in

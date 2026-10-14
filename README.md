@@ -1,5 +1,7 @@
 # What changed in the room?
 
+[![tests](https://github.com/yatrik-15/Humanoid-Challenge/actions/workflows/tests.yml/badge.svg)](https://github.com/yatrik-15/Humanoid-Challenge/actions/workflows/tests.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Given two phone videos of the same indoor area, one recorded before and one after, this
 finds which objects were **added**, **removed** or **moved**, where they are in 3-D, and what
 they are. Differences that only come from a different viewpoint, occlusion or incomplete
@@ -13,6 +15,25 @@ camera. Left: before. Right: after, with the surface of the added bottle tinted 
 [`examples/bottle/report.md`](examples/bottle/report.md).*
 
 **Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
+
+## Highlights
+
+- **Unknown is never a change.** Both recordings are fused in 3-D and rendered from every
+  camera pose of both; a difference only counts where the other recording actually saw
+  empty space. An unchanged room filmed along a different path gives 0 changes; on the
+  walkway pair the same pipeline without this check reports 12 clusters, with it 5.
+- **One 3-D frame by construction.** Both videos go into a single structure-from-motion
+  run, so there is no registration step between two separate reconstructions to fail.
+  Gravity comes from the floor plane, metric scale from a metric depth model.
+- **Geometry decides, language only names.** What changed, where and how big comes from the
+  3-D comparison; a vision-language model only names the object, never sees a number, and
+  must answer in a validated JSON schema.
+- **Built for a robot, not just a picture.** The route walked in the first video is replayed
+  on the changed room; if a change blocks it, the blocker is named and a new route is planned
+  through space that was actually observed. Both rooms are exported as standard ROS maps.
+- **Measured, including what fails.** A baseline without the visibility check runs on every
+  pair; a synthetic room with exact ground truth gives precision and recall 1.00 (baseline
+  precision 0.27); missed objects and false positives are listed with their causes.
 
 ## Results on real recordings
 
@@ -72,7 +93,6 @@ is blamed on the box, and the new route goes around it, never through unobserved
 
 On the walkway pair the check runs but says little: the corridor between the bed and the
 wardrobe reconstructs narrower than a 0.5 m wide robot, so most of the route is already
-
 blocked in A's own map, and the few remaining cells decide the result (an earlier run of the
 same pair blamed the bag; the shipped run does not). The top-down map shows why: white is
 floor seen empty or walked, grey is an obstacle now, hatched was never observed, and the
@@ -109,7 +129,11 @@ Install (below), then run on a bundled pair:
 python run.py --video_a examples/bottle/input/A.mp4 --video_b examples/bottle/input/B.mp4 --out out/bottle
 ```
 
-About 25 minutes on a laptop RTX 4050, mostly exhaustive feature matching. Results land in
+30-45 minutes on a laptop RTX 4050 (measured: stool 43 min, walkway 33 min), mostly feature
+matching between every pair of frames. `sfm.match_pairs: windowed` matches each frame with
+its 10 neighbours in the same video and with a third of the other video's frames: about 2x
+faster (bottle 15 min), same bottle detection, but on the stool pair the metric scale came
+out 17 % different, so it is an option, not the default. Results land in
 `out/bottle/`; the copies in `examples/bottle/` came from exactly this command. The stool pair
 needs `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally with
 `rerun examples/bottle/changes.rrd`, or with the browser links at the top.
@@ -186,10 +210,11 @@ flowchart LR
   Laplacian measure where a patterned sheet scores about 400, so a fixed blur threshold threw
   away 95 of 111 sharp frames.
 - **Tried and dropped: an image-text check of the labels.** SigLIP scored each label on the
-  view with the object against the view without it. It flagged both false changes on the
-  stool pair, but on the walkway pair it endorsed three false ones, because the two views come
-  from different positions and a static vase entered only one crop. It is left in the code,
-  off by default (`semantics.label_check`).
+  view with the object against the view without it. On the stool pair, before the flatness
+  filter existed, it flagged both wall patches that were then reported as changes; on the
+  walkway pair it endorsed three false changes, because the two views come from different
+  positions and a static vase entered only one crop. It is left in the code, off by default
+  (`semantics.label_check`); the flatness filter now removes the wall patches by geometry.
 
 ## Install
 
@@ -221,9 +246,12 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 57 tests
+python -m pytest        # 58 tests
 python -m ruff check .
 ```
+
+They also run on every push (GitHub Actions, Ubuntu, CPU only: the tests need no GPU and no
+model weights).
 
 They cover the pose and pixel conventions (including that Open3D's integration uses
 COLMAP's pixel centres), depth fitting, fusion helpers, a synthetic scene with removed,
@@ -258,3 +286,8 @@ eval/                   annotate.py (ground truth), run_eval.py, results/
 examples/<pair>/        input videos (bottle, stool, walkway) and every output of the run
 DEVLOG.md               dated log of runs, measurements, bugs and decisions
 ```
+
+## License
+
+MIT, see [LICENSE](LICENSE). The models downloaded at run time (DISK, LightGlue, Depth
+Anything V2, Qwen2-VL) come with their own licenses.

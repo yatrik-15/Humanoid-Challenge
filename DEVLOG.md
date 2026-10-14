@@ -751,3 +751,24 @@ R 1.00 (was 0.75 / 1.00); baseline 11, P 0.27. The baseline lost its false clust
 static pair (4 -> 0) and the keyboard pair (1 -> 0): they were flat patches too. Tests: the
 planarity of a 4 cm-noisy wall patch vs a cube's visible shell; the synthetic change test
 passes with the filter on. `pytest` -> 57 passed.
+
+## Review fixes, CI, licence, faster matching option (2026-10-14)
+
+- Report header no longer repeats "APPROXIMATE metres"; a missing VLM label is shown as
+  "(no label)" in report tables and descriptions. README: a broken paragraph joined, the
+  SigLIP note updated (the wall patches it flagged are now removed by the flatness filter),
+  a Highlights section, the measured run times (stool 2560 s, walkway 1965 s; the old
+  "about 25 minutes" was optimistic).
+- GitHub Actions runs ruff (check + format) and pytest on Ubuntu with Python 3.13 on every
+  push, with only the geometry libraries pinned as in requirements.lock: the tests need no
+  GPU and no model weights. The pair selection moved to `src/pairs.py` so its test does not
+  import hloc. MIT licence.
+- `sfm.match_pairs: windowed`: each frame with the next 10 of the same video, each A frame
+  with every 3rd B frame (staggered so every B frame is reached). Bottle: 2503 pairs
+  instead of 8001, whole run 913 s; 127/127 registered, 0.954 px (exhaustive 0.969 px);
+  the same bottle detected (5 x 4 x 20 cm, 4 view groups; centroid differs only by the
+  reconstruction's frame), labelled "punching bag" instead of "water bottle" from a
+  near-identical crop. Stool: 153/153 registered, 1.67 px (exhaustive 1.66), but metric
+  scale 0.0250 m/unit vs 0.0214 (17 % apart) with a wider spread of per-frame ratios
+  (IQR/median 0.26 vs 0.16). The stool and walkway runs were then stopped (the machine ran
+  out of memory), so the option stays off by default. `pytest` -> 58 passed.
