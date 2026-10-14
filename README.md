@@ -22,11 +22,11 @@ recording and clusters it with the same code, i.e. the method without visibility
 
 | pair | what changed | ours | baseline | notes |
 |---|---|---|---|---|
-| [bottle](examples/bottle) | bottle put on a pillow | **1 added** ✅ "water bottle", 5 × 4 × 20 cm | 6 (5 false) | |
-| [static](examples/static) | nothing (different camera path) | **0** ✅ | 4 (all false) | negative control |
-| [stool](examples/stool) | stool removed | **stool removed** ✅ "footstool", 0.5 × 0.6 × 0.5 m; 1 false | 5 (stool split into 4 pieces, 1 false) | the false one is a blank white wall; run with `--known_focal_rel 1.64` |
-| [walkway](examples/walkway) | bag moved, ball moved, bottle added | **bag moved 1.13 m** ✅, ball's old spot ✅ (as removed); 4 false | 20 (7 on real changes) | false ones at a dark window at night; the ball's new spot and the bottle (a spot A never saw) are not found |
-| [keyboard](examples/keyboard) | keyboard taken off the bed | 0 ❌ missed | 1 (false) | 2–3 cm tall: below depth resolution |
+| [bottle](examples/bottle) | bottle put on a pillow | **1 added** ✅ "water bottle", 5 × 4 × 20 cm | 2 (1 false) | |
+| [static](examples/static) | nothing (different camera path) | **0** ✅ | 0 | negative control |
+| [stool](examples/stool) | stool removed | **stool removed** ✅ "footstool", 0.5 × 0.6 × 0.5 m | 4 (stool split in 2, 2 false) | run with `--known_focal_rel 1.64` |
+| [walkway](examples/walkway) | bag moved, ball moved, bottle added | **bag moved 1.13 m** ✅, ball's old spot ✅ (as removed); 3 false | 12 (5 on real changes, in pieces) | false ones: the static vase (as removed and as added) and a window frame, at a dark window at night; the ball's new spot and the bottle (a spot A never saw) are not found |
+| [keyboard](examples/keyboard) | keyboard taken off the bed | 0 ❌ missed | 0 | 2–3 cm tall: below depth resolution |
 | ball | ball on a glossy tiled floor | – | – | reconstruction failed (reflections, TV screen) |
 
 Every number above comes from `examples/<pair>/report.json` and the run logs; how each was
@@ -35,9 +35,10 @@ measured, and what was tried and dropped, is in [DEVLOG.md](DEVLOG.md).
 What this shows:
 
 - **Viewpoint changes are not reported as changes.** On the unchanged room the method
-  reports nothing, while the baseline reports four objects. They are surfaces that only one
-  recording saw well; the visibility check classifies them as unknown. In the static pair B
-  also filmed a doorway that A never saw (right edge), and it stays unknown, not "added":
+  reports nothing. In the static pair B also filmed a doorway that A never saw (right
+  edge), and it stays unknown, not "added". Where the recordings overlap less, the
+  visibility check is what keeps the count down: on the walkway pair the baseline (same
+  clustering and filters, no visibility reasoning) reports 12 clusters, the method 5.
 
   ![unchanged room: nothing reported](examples/static/scene_3d.png)
 
@@ -51,9 +52,13 @@ What this shows:
 - **What fails, and why.** A keyboard lying flat is 2–3 cm tall while the change threshold is
   about 7.5 cm at the 1.5 m filming distance (5 % of depth, set by monocular depth noise);
   lowering it down to 1.5 % never produced a keyboard cluster, added false positives on the
-  static pair and lost the bottle. Blank walls and a dark window at night produce most false
+  static pair and lost the bottle. Blank walls and a dark window at night caused most false
   positives: monocular depth places textureless surfaces slightly differently from each
-  viewpoint. Glossy floors with moving reflections break reconstruction altogether.
+  viewpoint. That evidence is a flat patch, while an object leaves a 3-D shell (front,
+  sides, top); rejecting flat clusters removed 8 such false positives across the runs and
+  no real change. The remaining false ones on the walkway pair are a static vase and a
+  window frame at a black night-time window. Glossy floors with moving reflections break
+  reconstruction altogether.
 
 ### For a robot: is my route still free?
 
@@ -91,8 +96,8 @@ a 2-D navigation stack such as Nav2: [`examples/walkway/nav/`](examples/walkway/
 
 | method | predictions | true positives (of 3) | precision | recall | centroid error |
 |---|---|---|---|---|---|
-| ours | 4 | 3 | 0.75 | 1.00 | 0.083 |
-| baseline | 17 | 3 | 0.18 | 1.00 | 0.085 |
+| ours | 3 | 3 | 1.00 | 1.00 | 0.083 |
+| baseline | 11 | 3 | 0.27 | 1.00 | 0.085 |
 
 Camera poses are recovered to 1.4 mm (mean, after a similarity fit to the true poses).
 
@@ -147,8 +152,10 @@ flowchart LR
    B. Where B's surface is in front of A's, that is evidence for *added*; behind it, for
    *removed*. Evidence only counts if the other recording saw that spot as empty space;
    otherwise it is *unknown*. A voxel needs confirmation from three distinct viewpoints.
-5. **Objects.** Evidence is clustered with DBSCAN. Thin sheets lying on a static surface,
-   which is how depth error between the recordings shows up, are rejected. A removed and an
+5. **Objects.** Evidence is clustered with DBSCAN. Flat clusters lying on a static surface,
+   which is how depth error between the recordings shows up, are rejected: an object's
+   evidence is the 3-D shell the cameras saw, a depth error on a wall is a flat patch
+   (smallest / middle principal variance below 0.15). A removed and an
    added cluster with similar size and colours become one move with a displacement.
 6. **Route check** (above).
 7. **Labels.** The best unoccluded before/after views are cropped and sent to Qwen2-VL-2B,
@@ -214,7 +221,7 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 56 tests
+python -m pytest        # 57 tests
 python -m ruff check .
 ```
 
@@ -229,8 +236,10 @@ replanned around it, never through unobserved space), the ROS map export and the
 
 - Objects lower than about 5 cm lying on a surface (keyboards, books, rugs) are not detected,
   and flat objects against walls (posters) are rejected as sheets.
-- Needs textured, mostly Lambertian scenes: blank walls and dark windows cause false
-  positives, glossy floors and screens broke reconstruction on one pair.
+- Needs textured, mostly Lambertian scenes: dark windows still cause false positives,
+  glossy floors and screens broke reconstruction on one pair. The flatness cut was chosen
+  on these recordings (real changes 0.17-0.80, false patches 0.06-0.13); an object seen
+  from one side only would look flat and be rejected.
 - A removed object in front of a region the other recording never measured stays unknown.
 - Scale is approximate (median of monocular metric depth); heights are unreliable when the
   phone was rolled.

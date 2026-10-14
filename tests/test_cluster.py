@@ -11,6 +11,7 @@ CCFG = {
     "min_frontal_area": 0.005,
     "min_cluster_points": 20,
     "min_cluster_thickness": 0.10,
+    "min_planarity": 0.15,
     "sheet_aspect": 3.0,
     "min_surface_gap": 0.06,
 }
@@ -106,3 +107,17 @@ def test_pair_moved_respects_distance_limit():
     removed = [_cluster((0, 0, 0), (0.3, 0.3, 0.3), h)]
     added = [_cluster((10, 0, 0), (0.3, 0.3, 0.3), h)]
     assert pair_moved(removed, added, MCFG) == []
+
+
+def test_planarity_separates_a_wall_patch_from_an_object_shell():
+    from src.cluster import planarity
+
+    rng = np.random.default_rng(0)
+    # wall patch 0.8 x 1.1 m with 4 cm of depth noise: thicker than a sheet, still flat
+    patch = np.c_[rng.normal(0, 0.04, 2000), rng.uniform(0, 0.8, 2000), rng.uniform(0, 1.1, 2000)]
+    # visible shell of a 0.4 m cube: front face, one side, top
+    u, v = rng.uniform(0, 0.4, (2, 700))
+    shell = np.vstack(
+        [np.c_[u, np.zeros(700), v], np.c_[np.zeros(700), u, v], np.c_[u, v, np.full(700, 0.4)]]
+    )
+    assert planarity(patch) < 0.15 < planarity(shell)

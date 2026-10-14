@@ -11,16 +11,16 @@
   },
   "methods": {
     "visibility-aware (ours)": {
-      "num_pred": 4,
+      "num_pred": 3,
       "num_gt": 3,
       "change_TP": 3,
-      "change_precision": 0.75,
+      "change_precision": 1.0,
       "change_recall": 1.0,
       "change_centroid_err": 0.083,
-      "region_pred": 5,
+      "region_pred": 4,
       "region_gt": 4,
       "region_TP": 4,
-      "region_precision": 0.8,
+      "region_precision": 1.0,
       "region_recall": 1.0,
       "region_centroid_err": 0.064,
       "matches": [
@@ -30,7 +30,7 @@
           "dist": 0.041
         },
         {
-          "pred": 3,
+          "pred": 2,
           "gt": 1,
           "dist": 0.099
         },
@@ -42,16 +42,16 @@
       ]
     },
     "naive NN baseline": {
-      "num_pred": 17,
+      "num_pred": 11,
       "num_gt": 3,
       "change_TP": 3,
-      "change_precision": 0.176,
+      "change_precision": 0.273,
       "change_recall": 1.0,
       "change_centroid_err": 0.085,
-      "region_pred": 18,
+      "region_pred": 12,
       "region_gt": 4,
       "region_TP": 4,
-      "region_precision": 0.222,
+      "region_precision": 0.333,
       "region_recall": 1.0,
       "region_centroid_err": 0.066,
       "matches": [
@@ -61,12 +61,12 @@
           "dist": 0.045
         },
         {
-          "pred": 5,
+          "pred": 3,
           "gt": 0,
           "dist": 0.104
         },
         {
-          "pred": 15,
+          "pred": 9,
           "gt": 1,
           "dist": 0.106
         }

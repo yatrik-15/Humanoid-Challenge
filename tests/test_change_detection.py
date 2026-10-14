@@ -53,6 +53,7 @@ CLUSTER = {
     "min_frontal_area": 0.005,
     "min_cluster_points": 10,
     "min_cluster_thickness": 0.10,
+    "min_planarity": 0.15,
     "sheet_aspect": 3.0,
     "min_surface_gap": 0.06,
 }

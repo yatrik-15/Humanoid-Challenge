@@ -5,7 +5,7 @@
   "counts": {
     "moved": 0,
     "removed": 1,
-    "added": 1
+    "added": 0
   },
   "unknown_evidence_voxels": 1537,
   "changes": [
@@ -103,103 +103,6 @@
           ],
           "score": 97096.8,
           "crop": "semantics\\crops\\change00_B.jpg"
-        }
-      ]
-    },
-    {
-      "id": 1,
-      "action": "added",
-      "label": "green ball",
-      "label_confidence": 0.8,
-      "description": "Green ball added: An object was added (present only in the after recording). Region: centre at x=-1.10, y=2.72 m (approx.); size about 0.91 x 0.45 x 1.22 m (approx.) (top 1.71 m (approx.) above the z=0 plane).",
-      "spatial_summary": "on the floor near the wall",
-      "label_check": null,
-      "supporting_view_groups": 4,
-      "num_evidence_voxels": 1438,
-      "box": {
-        "center": [
-          -1.1037,
-          2.7227,
-          1.1026
-        ],
-        "extents": [
-          0.9083,
-          0.4495,
-          1.2187
-        ],
-        "yaw_rad": -2.4397,
-        "corners": [
-          [
-            -0.902,
-            3.1875,
-            0.4932
-          ],
-          [
-            -0.902,
-            3.1875,
-            1.7119
-          ],
-          [
-            -0.6118,
-            2.8443,
-            0.4932
-          ],
-          [
-            -0.6118,
-            2.8443,
-            1.7119
-          ],
-          [
-            -1.5956,
-            2.6011,
-            0.4932
-          ],
-          [
-            -1.5956,
-            2.6011,
-            1.7119
-          ],
-          [
-            -1.3054,
-            2.2579,
-            0.4932
-          ],
-          [
-            -1.3054,
-            2.2579,
-            1.7119
-          ]
-        ]
-      },
-      "centroid": [
-        -1.1037,
-        2.7227,
-        1.1026
-      ],
-      "views": [
-        {
-          "epoch": "A",
-          "frame": "A_0065.jpg",
-          "box_px": [
-            276,
-            180,
-            877,
-            945
-          ],
-          "score": 411489.7,
-          "crop": "semantics\\crops\\change01_A.jpg"
-        },
-        {
-          "epoch": "B",
-          "frame": "B_0067.jpg",
-          "box_px": [
-            289,
-            267,
-            872,
-            1002
-          ],
-          "score": 204611.1,
-          "crop": "semantics\\crops\\change01_B.jpg"
         }
       ]
     }

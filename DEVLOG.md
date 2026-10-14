@@ -728,3 +728,26 @@ vase, window area).
   recording, vertex colours kept (1.4 s each). Points, frustums and evidence voxels,
   hidden by default anyway, are only logged with `viz.rerun_extras: true`. The gif and
   png still use the full meshes. `pytest` -> 56 passed.
+
+## Flat-patch filter (2026-10-14)
+
+The stool example reported "green ball added": a patch of blank wall (false), named after the
+unmoved ball that was in the crop. Its evidence was 0.26 m thick along the smallest axis
+(depth noise on a wall seen obliquely, with gravity tilted on this pair), so the sheet test
+(< 0.10 m) did not reject it. Measured planarity (variance along the smallest / middle
+principal axis) of every cluster from the bottle, stool and walkway runs, earlier and
+shipped:
+
+- real changes: bottle 0.37, stool 0.30 / 0.33, stool fragment 0.17, bag 0.33 / 0.35 /
+  0.52 / 0.66, ball's old spot 0.80
+- false, flat patches on walls and windows: 0.06, 0.08, 0.09, 0.10, 0.12, 0.12, 0.13, 0.13
+- false, not flat: static vase 0.33 / 0.45 / 0.50, window frame 0.20
+
+New `cluster.min_planarity: 0.15` (applied to the baseline too). Chosen on these runs, so
+not validated on held-out data; an object seen from one side only would look flat. Results:
+stool 1 removed (the stool), 0 false (was 1); walkway bag moved, ball's old spot, 3 false
+(was 4); bottle unchanged; static and keyboard still 0. Synthetic: 3 predictions, P 1.00 /
+R 1.00 (was 0.75 / 1.00); baseline 11, P 0.27. The baseline lost its false clusters on the
+static pair (4 -> 0) and the keyboard pair (1 -> 0): they were flat patches too. Tests: the
+planarity of a 4 cm-noisy wall patch vs a cube's visible shell; the synthetic change test
+passes with the filter on. `pytest` -> 57 passed.

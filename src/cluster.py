@@ -63,6 +63,17 @@ def principal_extents(points: np.ndarray) -> np.ndarray:
     return np.sort(np.percentile(proj, 98, axis=0) - np.percentile(proj, 2, axis=0))
 
 
+def planarity(points: np.ndarray) -> float:
+    """Variance along the smallest principal axis / variance along the middle one: near 0
+    for a flat patch, larger for a 3-D shell (an object seen from the front, side and
+    top). 1.0 for fewer than 4 points."""
+    if len(points) < 4:
+        return 1.0
+    X = points - points.mean(axis=0)
+    w = np.linalg.eigvalsh(X.T @ X / len(X))
+    return float(w[0] / max(w[1], 1e-12))
+
+
 def cluster_points(
     points: np.ndarray,
     views: np.ndarray,
@@ -77,6 +88,9 @@ def cluster_points(
       - sheet: thin along one principal axis (< min_cluster_thickness) but extended along
         the middle one (> sheet_aspect * thickness). Slender objects such as poles or chair
         legs are thin along two axes and are kept.
+      - patch: flat overall (`planarity` below `min_planarity`) even when depth noise
+        makes it thicker than a sheet. An object's evidence is the shell the cameras saw
+        (front, sides, top), which is not flat.
       - hugging: the evidence lies close to the other recording's surface (median distance
         to `other_surface`, a cKDTree of its fused cloud, < min_surface_gap). A removed
         object leaves the other recording looking at the background well behind it.
@@ -106,6 +120,9 @@ def cluster_points(
             continue
         if ext[0] < cfg["min_cluster_thickness"] and ext[1] > cfg["sheet_aspect"] * max(ext[0], voxel_size):
             continue  # sheet
+        flatness = planarity(pts)
+        if flatness < cfg["min_planarity"]:
+            continue  # flat patch on a static surface
         gap = float(np.median(other_surface.query(pts)[0])) if other_surface is not None else None
         if gap is not None and gap < cfg["min_surface_gap"]:
             continue  # hugs the other epoch's surface
@@ -119,6 +136,7 @@ def cluster_points(
                 "box_volume": box_volume,
                 "frontal_area": frontal_area,
                 "principal_extents": ext.tolist(),
+                "planarity": flatness,
                 "surface_gap": gap,
                 **box,
             }

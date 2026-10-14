@@ -110,6 +110,9 @@ cluster:
   sheet_aspect: 3.0               #   sheet_aspect x that along the middle axis = a sheet on
                                   #   a wall or bed, rejected. Poles are kept; flat objects
                                   #   (posters, rugs, a keyboard) are not reported.
+  min_planarity: 0.15             # reject flat patches: smallest / middle principal variance.
+                                  #   Real changes measured 0.17-0.80, wall and window
+                                  #   patches 0.06-0.13 (DEVLOG, 2026-10-14)
   min_surface_gap: 0.06           # reject if the evidence lies this close to the other
                                   #   recording's surface (median distance)
 
