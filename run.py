@@ -156,7 +156,9 @@ def main() -> None:
         banner("viz", "reports and visualizations")
         from src.viz import generate_visualizations
 
-        generate_visualizations(out_dir, config["viz"], config["fusion"])
+        generate_visualizations(
+            out_dir, config["viz"], config["fusion"], config["alignment"]["floor_camera_height_range"]
+        )
 
     print(f"\ndone in {time.time() - t_start:.0f} s -> {out_dir}")
 

@@ -69,10 +69,12 @@ On the walkway pair the check runs but says little: the corridor between the bed
 wardrobe reconstructs narrower than a 0.5 m wide robot, so most of the route is already
 
 blocked in A's own map, and the few remaining cells decide the result (an earlier run of the
-same pair blamed the bag; the shipped run does not). The top-down map still shows the bag's
-move across the walkway and both camera paths:
+same pair blamed the bag; the shipped run does not). The top-down map shows why: white is
+floor seen empty or walked, grey is an obstacle now, hatched was never observed, and the
+corridor between the bed and the wardrobe is barely wider than the walked line. It also
+shows the bag's move across the walkway and both camera paths:
 
-<img src="examples/walkway/floor_map.png" width="480" alt="top-down map: the bag moved across the walkway">
+<img src="examples/walkway/floor_map.png" width="560" alt="top-down map: seen floor, obstacles, never-observed area, the bag moved across the walkway">
 
 The check only runs when the floor is in view and the camera height above it is plausible
 (1.1–1.9 m); in the bedroom pairs the reference plane is the mattress, so it is skipped.
@@ -112,7 +114,7 @@ needs `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally 
 | `report.md`, `report.json` | every change: action, label, description, 3-D box, centroid, displacement, label confidence, supporting viewpoints |
 | `scene_3d.png`, `scene_3d.gif` | both reconstructed rooms from one virtual camera; the surface of each changed object is tinted (red removed, green added, orange moved), with boxes and camera paths (gif: orbit) |
 | `side_by_side.mp4` | each B frame next to the closest A frame, change boxes projected in |
-| `floor_map.png` | top-down map of obstacles, changes, both camera paths, and the route check |
+| `floor_map.png` | top-down map of the after-room: floor seen empty / obstacle / never observed, change footprints, move arrows, both camera paths, and the route check |
 | `nav/route.json`, `nav/map_{A,B}.pgm/.yaml` | route check result and ROS `map_server` occupancy maps (only when the floor is in view) |
 | `changes.rrd` | Rerun recording that opens on a BEFORE / AFTER layout: surface meshes, camera paths, change boxes, move arrows; frustums, points and evidence voxels toggleable |
 
@@ -212,7 +214,7 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 54 tests
+python -m pytest        # 55 tests
 python -m ruff check .
 ```
 

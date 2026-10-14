@@ -712,3 +712,14 @@ vase, window area).
   itself lights up, and a false change shows exactly what it covers (on the stool pair, a
   patch of wall). Camera paths are drawn as lines. Tests: nearest surface wins, surface
   inside a box is tinted and outside is not. `pytest` -> 54 passed.
+- Floor map redrawn. The old map showed only obstacle points on a white background,
+  so floor seen empty and space never observed looked the same, and labels overlapped.
+  Now: white = surface seen with nothing standing (or within 0.2 m of a walked path),
+  grey = obstacle now, hatched = never observed by either recording; labels are pushed
+  apart with leader lines, legend outside the plot. Obstacles are the 0.05-1.8 m band
+  only when z = 0 is reliably the floor; otherwise (bedroom pairs: z = 0 is the
+  mattress; stool pair: the plane is tilted 22-28 deg) a cell is an obstacle when its
+  points span at least 0.15 m in height, which marks walls and furniture sides but not a
+  floor or bed top. With the band rule the stool map showed the whole floor as obstacle.
+  The map title states the rule used. Test: a wall is marked, a floor tilted 22 deg and
+  offset from z = 0 is not. `pytest` -> 55 passed.

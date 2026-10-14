@@ -47,3 +47,17 @@ def test_surface_inside_a_change_box_is_tinted():
     assert img[50, 50, 1] > img[50, 50, 0] + 50  # tinted green inside the box
     assert abs(int(img[50, 20, 1]) - int(img[50, 20, 0])) < 5  # untouched outside it
     assert inside_box(box, np.array([[0.0, 0.0, 1.0], [0.2, 0.0, 1.0]])).tolist() == [True, False]
+
+
+def test_vertical_structure_marks_walls_not_a_tilted_floor():
+    from src.navigation import Grid2D
+    from src.viz import vertical_structure
+
+    xs, ys = np.meshgrid(np.arange(0, 2, 0.02), np.arange(0, 2, 0.02))
+    floor = np.c_[xs.ravel(), ys.ravel(), 0.3 + 0.4 * xs.ravel()]  # tilted 22 deg, offset from z = 0
+    zs = np.arange(0, 1.0, 0.02)
+    wall = np.array([[1.0, y, z] for y in np.arange(0, 2, 0.02) for z in zs])  # wall at x = 1
+    grid = Grid2D(0.0, 0.0, 40, 40, 0.05)
+    v = vertical_structure(np.vstack([floor, wall]), grid, 0.15, 3)
+    assert v[20, :].all()  # the wall column
+    assert not v[5, :].any() and not v[35, :].any()  # floor on both sides

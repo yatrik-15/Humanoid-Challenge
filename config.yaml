@@ -167,3 +167,6 @@ viz:
   mp4_max_width: 1600
   pair_angle_weight: 1.0          # A/B frame pairing cost: centre distance + this * (1 - cos)
   obstacle_z_band: [0.05, 1.8]    # heights above z = 0 drawn as obstacles in the floor map
+  floor_map_cell: 0.05            # floor map grid
+  floor_map_walked_radius: 0.2    # cells this close to a camera path count as observed (walked)
+  floor_map_min_span: 0.15        # floor not found: a cell with this much vertical structure is an obstacle
