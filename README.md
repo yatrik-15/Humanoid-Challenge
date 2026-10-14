@@ -9,10 +9,10 @@ against the path a robot would walk: if a change now blocks it, a new route is p
 ![fused 3-D scene before and after, with the detected change](examples/bottle/scene_3d.gif)
 
 *Bottle pair: both recordings fused into one 3-D frame and rendered from the same virtual
-camera. Left: before. Right: after, with the added bottle boxed in green. The full report is
+camera. Left: before. Right: after, with the surface of the added bottle tinted green. The full report is
 [`examples/bottle/report.md`](examples/bottle/report.md).*
 
-**Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer; both clouds, all camera poses, change boxes and the unknown regions in grey).
+**Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside; every camera frustum, the raw points and the unknown regions can be switched on in the entity tree.
 
 ## Results on real recordings
 
@@ -110,11 +110,11 @@ needs `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally 
 | output | contents |
 |---|---|
 | `report.md`, `report.json` | every change: action, label, description, 3-D box, centroid, displacement, label confidence, supporting viewpoints |
-| `scene_3d.png`, `scene_3d.gif` | both fused recordings from one virtual camera, change boxes and camera paths (gif: orbit) |
+| `scene_3d.png`, `scene_3d.gif` | both reconstructed rooms from one virtual camera; the surface of each changed object is tinted (red removed, green added, orange moved), with boxes and camera paths (gif: orbit) |
 | `side_by_side.mp4` | each B frame next to the closest A frame, change boxes projected in |
 | `floor_map.png` | top-down map of obstacles, changes, both camera paths, and the route check |
 | `nav/route.json`, `nav/map_{A,B}.pgm/.yaml` | route check result and ROS `map_server` occupancy maps (only when the floor is in view) |
-| `changes.rrd` | Rerun recording: both clouds, cameras, change boxes, unknown evidence in grey |
+| `changes.rrd` | Rerun recording that opens on a BEFORE / AFTER layout: surface meshes, camera paths, change boxes, move arrows; frustums, points and evidence voxels toggleable |
 
 Re-run only the later stages after changing a setting:
 `python run.py --out out/bottle --stages diff,cluster,semantics,viz`.
@@ -212,7 +212,7 @@ and the centroid lie within 0.3 m), region-level precision and recall, and centr
 ## Tests
 
 ```bash
-python -m pytest        # 52 tests
+python -m pytest        # 54 tests
 python -m ruff check .
 ```
 
@@ -221,7 +221,7 @@ COLMAP's pixel centres), depth fitting, fusion helpers, a synthetic scene with r
 added, moved, occluded and never-observed objects, the ablation showing that the free-space
 check is what suppresses the occlusion false positive, the VLM output validation, the
 annotation triangulation, the route check (a blocked corridor is blamed on the added box and
-replanned around it), the ROS map export and the point renderer.
+replanned around it, never through unobserved space), the ROS map export and the mesh renderer.
 
 ## Limitations
 

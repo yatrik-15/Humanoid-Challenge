@@ -156,7 +156,7 @@ def main() -> None:
         banner("viz", "reports and visualizations")
         from src.viz import generate_visualizations
 
-        generate_visualizations(out_dir, config["viz"], config["fusion"]["voxel_size"])
+        generate_visualizations(out_dir, config["viz"], config["fusion"])
 
     print(f"\ndone in {time.time() - t_start:.0f} s -> {out_dir}")
 

@@ -699,3 +699,16 @@ vase, window area).
   overview, floor map, links to the side-by-side video and the Rerun file). Each
   `examples/<pair>/` folder has a README.md (the report plus the visuals that ship there,
   the browser viewer link and the input videos), so opening the folder on GitHub shows it.
+- 3-D outputs rebuilt on surface meshes. The Rerun file showed both recordings as 5 mm
+  points on a 2 cm grid, overlaid in one view with about 140 camera frustums: the room read
+  as a sparse scatter. Now each recording's TSDF zero-level mesh (about 50 k vertices,
+  100 k triangles, vertex colours and normals) is logged, and the file carries a default
+  layout: BEFORE and AFTER 3-D views side by side, both starting at the overview camera,
+  plus the report. Frustums, points and evidence voxels are still logged but hidden by
+  default. Files 5-9 MB.
+- scene_3d.png/.gif ray-cast the same meshes (interpolated vertex colours, headlight plus a
+  little top light) instead of splatting points, so there are no holes or streaks, and
+  the surface inside each change box is tinted in the change's colour: the changed object
+  itself lights up, and a false change shows exactly what it covers (on the stool pair, a
+  patch of wall). Camera paths are drawn as lines. Tests: nearest surface wins, surface
+  inside a box is tinted and outside is not. `pytest` -> 54 passed.

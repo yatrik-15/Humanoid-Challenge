@@ -4,11 +4,13 @@ Writes into the run directory:
     report.json       changes with id, action, label, description, boxes, centroid,
                       displacement, label confidence and supporting view groups
     report.md         human-readable summary
-    changes.rrd       Rerun recording: clouds A and B, camera frustums, change boxes,
-                      arrows for moved objects, unknown evidence in grey
+    changes.rrd       Rerun recording that opens on BEFORE / AFTER views: surface meshes,
+                      camera paths, change boxes, arrows for moved objects (frustums, points
+                      and evidence voxels logged but hidden by default)
     side_by_side.mp4  each B frame next to the nearest-pose A frame, with projected boxes
     floor_map.png     top-down map of obstacles, changes and camera paths
-    scene_3d.png/gif  fused A and B rendered from one elevated virtual camera (gif: orbit)
+    scene_3d.png/gif  A and B surface meshes from one elevated virtual camera, changed
+                      surfaces tinted (gif: orbit)
 
 Rerun transforms are applied as X_parent = mat3x3 @ X + translation.
 """
@@ -157,77 +159,134 @@ def _boxes(report: dict):
             yield c["box"], c["action"], f"#{c['id']} {name} ({c['action']})", None
 
 
-def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path) -> None:
-    import rerun as rr
+def write_rerun(out_dir: Path, report: dict, cfg: dict, path: Path, meshes: dict[str, dict]) -> None:
+    """Rerun recording that opens on a ready layout: BEFORE and AFTER 3-D views side by side,
+    both starting from the overview camera, and the report next to them.
 
+    world/before (A): surface mesh, camera path, removed boxes and old positions of moves
+    world/after  (B): surface mesh, camera path, added boxes and new positions of moves
+    Also logged but hidden by default (tick them in the viewer's tree): every camera
+    frustum, the fused surface points, and the evidence voxels (unknown in grey)."""
+    import rerun as rr
+    import rerun.blueprint as rrb
+
+    eye, target = overview_pose(out_dir, report, 0.0)
+    side = {"A": "before", "B": "after"}
+
+    def view(e: str) -> rrb.Spatial3DView:
+        s = side[e]
+        return rrb.Spatial3DView(
+            name=f"{s.upper()} ({e})",
+            origin="/world",
+            contents=[
+                f"+ /world/{s}/**",
+                "+ /world/moves/**",
+                f"- /world/{s}/cameras/**",
+                f"- /world/{s}/points/**",
+                f"- /world/{s}/evidence/**",
+            ],
+            background=[32, 32, 32],
+            eye_controls=rrb.EyeControls3D(position=eye, look_target=target, eye_up=[0.0, 0.0, 1.0]),
+        )
+
+    blueprint = rrb.Blueprint(
+        rrb.Horizontal(
+            view("A"),
+            view("B"),
+            rrb.TextDocumentView(origin="/report", name="Report"),
+            column_shares=[2, 2, 1],
+        ),
+        collapse_panels=True,
+    )
     rr.init("what_changed", spawn=False)
-    rr.save(str(path))
+    rr.save(str(path), default_blueprint=blueprint)
     rr.log("world", rr.ViewCoordinates.RIGHT_HAND_Z_UP, static=True)
-    for e, _col in (("A", [80, 140, 255]), ("B", [255, 170, 60])):
-        c = np.load(out_dir / "fusion" / f"cloud_{e}.npz")
-        pts = c["points"]
-        if len(pts) > cfg["max_cloud_points"]:
-            idx = np.random.default_rng(0).choice(len(pts), cfg["max_cloud_points"], replace=False)
-            pts, cols = pts[idx], c["colors"][idx]
-        else:
-            cols = c["colors"]
-        rr.log(
-            f"world/cloud_{e}",
-            rr.Points3D(pts, colors=(np.clip(cols, 0, 1) * 255).astype(np.uint8), radii=cfg["point_radius"]),
-            static=True,
-        )
-    ev = np.load(out_dir / "diff" / "evidence.npz")
-    if len(ev["unknown_points"]):
-        rr.log(
-            "world/unknown",
-            rr.Points3D(ev["unknown_points"], colors=[150, 150, 150], radii=cfg["point_radius"]),
-            static=True,
-        )
-    for k in ("added", "removed"):
-        if len(ev[f"{k}_points"]):
-            rr.log(
-                f"world/evidence_{k}",
-                rr.Points3D(ev[f"{k}_points"], colors=_color(cfg, k), radii=cfg["point_radius"]),
-                static=True,
-            )
+    poses = json.load(open(out_dir / "align" / "poses.json"))
     boxes = list(_boxes(report))
-    if boxes:
+    ev = np.load(out_dir / "diff" / "evidence.npz")
+    rng = np.random.default_rng(0)
+    for e, s in side.items():
+        m = meshes[e]
         rr.log(
-            "world/changes",
-            rr.Boxes3D(
-                centers=[b["center"] for b, *_ in boxes],
-                half_sizes=[np.array(b["extents"]) / 2 for b, *_ in boxes],
-                rotation_axis_angles=[
-                    rr.RotationAxisAngle(axis=[0, 0, 1], radians=b["yaw_rad"]) for b, *_ in boxes
-                ],
-                colors=[_color(cfg, a) for _, a, *_ in boxes],
-                labels=[t for _, _, t, _ in boxes],
+            f"world/{s}/surface",
+            rr.Mesh3D(
+                vertex_positions=m["vertices"].astype(np.float32),
+                triangle_indices=m["triangles"].astype(np.uint32),
+                vertex_normals=m["normals"].astype(np.float32),
+                vertex_colors=(m["colors"] * 255).astype(np.uint8),
             ),
             static=True,
         )
+        c = np.load(out_dir / "fusion" / f"cloud_{e}.npz")
+        pts, cols = c["points"], c["colors"]
+        if len(pts) > cfg["max_cloud_points"]:
+            idx = rng.choice(len(pts), cfg["max_cloud_points"], replace=False)
+            pts, cols = pts[idx], cols[idx]
+        rr.log(
+            f"world/{s}/points",
+            rr.Points3D(pts, colors=(np.clip(cols, 0, 1) * 255).astype(np.uint8), radii=cfg["point_radius"]),
+            static=True,
+        )
+        names = sorted(n for n, p in poses.items() if p["epoch"] == e)
+        C = np.array([camera_center(np.array(poses[n]["T_cw"])) for n in names])
+        col = [80, 140, 255] if e == "A" else [255, 170, 60]
+        rr.log(
+            f"world/{s}/camera_path",
+            rr.LineStrips3D([C], colors=[col], radii=0.008, labels=[f"camera path {e}"]),
+            static=True,
+        )
+        for n in names:
+            T_wc = invert_pose(np.array(poses[n]["T_cw"]))
+            ent = f"world/{s}/cameras/{Path(n).stem}"
+            rr.log(ent, rr.Transform3D(translation=T_wc[:3, 3], mat3x3=T_wc[:3, :3]), static=True)
+            rr.log(
+                ent,
+                rr.Pinhole(
+                    image_from_camera=np.array(poses[n]["K"]),
+                    resolution=[poses[n]["width"], poses[n]["height"]],
+                    camera_xyz=rr.ViewCoordinates.RDF,
+                    image_plane_distance=cfg["frustum_size"],
+                ),
+                static=True,
+            )
+        mine = [(b, a, t) for b, a, t, w in boxes if _shown(a, w, e)]
+        if mine:
+            rr.log(
+                f"world/{s}/changes",
+                rr.Boxes3D(
+                    centers=[b["center"] for b, _, _ in mine],
+                    half_sizes=[np.array(b["extents"]) / 2 for b, _, _ in mine],
+                    rotation_axis_angles=[
+                        rr.RotationAxisAngle(axis=[0, 0, 1], radians=b["yaw_rad"]) for b, _, _ in mine
+                    ],
+                    colors=[_color(cfg, a) for _, a, _ in mine],
+                    labels=[t for _, _, t in mine],
+                    radii=0.01,
+                ),
+                static=True,
+            )
+        k = "removed" if e == "A" else "added"
+        if len(ev[f"{k}_points"]):
+            rr.log(
+                f"world/{s}/evidence/{k}",
+                rr.Points3D(ev[f"{k}_points"], colors=_color(cfg, k), radii=cfg["point_radius"]),
+                static=True,
+            )
+        if len(ev["unknown_points"]):
+            rr.log(
+                f"world/{s}/evidence/unknown",
+                rr.Points3D(ev["unknown_points"], colors=[150, 150, 150], radii=cfg["point_radius"]),
+                static=True,
+            )
     moved = [c for c in report["changes"] if c["action"] == "moved"]
     if moved:
         rr.log(
-            "world/moved_arrows",
+            "world/moves",
             rr.Arrows3D(
                 origins=[c["centroid_before"] for c in moved],
                 vectors=[c["displacement"] for c in moved],
                 colors=[_color(cfg, "moved")] * len(moved),
-            ),
-            static=True,
-        )
-    poses = json.load(open(out_dir / "align" / "poses.json"))
-    for name, p in sorted(poses.items()):
-        T_wc = invert_pose(np.array(p["T_cw"]))
-        ent = f"world/cameras/{p['epoch']}/{Path(name).stem}"
-        rr.log(ent, rr.Transform3D(translation=T_wc[:3, 3], mat3x3=T_wc[:3, :3]), static=True)
-        rr.log(
-            ent,
-            rr.Pinhole(
-                image_from_camera=np.array(p["K"]),
-                resolution=[p["width"], p["height"]],
-                camera_xyz=rr.ViewCoordinates.RDF,
-                image_plane_distance=cfg["frustum_size"],
+                radii=0.015,
             ),
             static=True,
         )
@@ -387,71 +446,100 @@ def write_floor_map(out_dir: Path, report: dict, cfg: dict, path: Path) -> None:
     plt.close(fig)
 
 
-def render_points(
-    pts: np.ndarray,
-    cols: np.ndarray,
-    K: np.ndarray,
-    T_cw: np.ndarray,
-    W: int,
-    H: int,
-    voxel: float,
-    fill_px: int = 0,
-) -> np.ndarray:
-    """Z-buffered splat render of a coloured cloud (RGB uint8). Each point is drawn as a
-    square about one voxel wide at its depth, so the surface reads as closed."""
-    uv, z = project_points(pts, K, T_cw)
-    ok = z > 0.05
-    uv, z, cols = uv[ok], z[ok], cols[ok]
-    rmax = 12
-    r = np.clip(np.round(0.6 * K[0, 0] * voxel / z), 1, rmax).astype(int)
-    u0, v0 = np.floor(uv[:, 0]).astype(int), np.floor(uv[:, 1]).astype(int)
-    idx, depth, src = [], [], []
-    for dy in range(-rmax, rmax + 1):
-        for dx in range(-rmax, rmax + 1):
-            m = np.maximum(abs(dx), abs(dy)) <= r
-            u, v = u0[m] + dx, v0[m] + dy
-            inside = (u >= 0) & (u < W) & (v >= 0) & (v < H)
-            idx.append(v[inside] * W + u[inside])
-            depth.append(z[m][inside])
-            src.append(np.flatnonzero(m)[inside])
-    idx, depth, src = np.concatenate(idx), np.concatenate(depth), np.concatenate(src)
-    order = np.lexsort((depth, idx))  # nearest point first within each pixel
-    first = order[np.r_[True, idx[order][1:] != idx[order][:-1]]]
-    img = np.full((H * W, 3), 32, np.uint8)
-    img[idx[first]] = (np.clip(cols[src[first]], 0, 1) * 255).astype(np.uint8)
-    hit = np.zeros(H * W, np.uint8)
-    hit[idx[first]] = 255
-    return fill_small_holes(img.reshape(H, W, 3), hit.reshape(H, W), fill_px)
+def load_meshes(out_dir: Path, weight_threshold: float) -> dict[str, dict]:
+    """Zero-level surface of each recording's TSDF grid: vertices, triangles, vertex colours
+    (0-1) and vertex normals. A closed, coloured surface reads as a room, where the 2 cm
+    surface points read as a scatter of dots."""
+    import open3d as o3d
+
+    meshes = {}
+    for e in ("A", "B"):
+        grid = o3d.t.geometry.VoxelBlockGrid.load(str(out_dir / "fusion" / f"grid_{e}.npz"))
+        m = grid.extract_triangle_mesh(weight_threshold).to_legacy()
+        m.compute_vertex_normals()
+        meshes[e] = {
+            "vertices": np.asarray(m.vertices, np.float64),
+            "triangles": np.asarray(m.triangles, np.int64),
+            "colors": np.clip(np.asarray(m.vertex_colors, np.float64), 0, 1),
+            "normals": np.asarray(m.vertex_normals, np.float64),
+        }
+    return meshes
 
 
-def fill_small_holes(img: np.ndarray, hit: np.ndarray, size: int) -> np.ndarray:
-    """Inpaint background pixels enclosed by surface within `size` px. A plane oblique to
-    the voxel grid leaves regular rows of missing surface points; this closes them without
-    growing the silhouette."""
-    import cv2
-
-    if size <= 0:
-        return img
-    k = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (size, size))
-    holes = cv2.morphologyEx(hit, cv2.MORPH_CLOSE, k) & ~hit
-    if not holes.any():
-        return img
-    return cv2.inpaint(img, holes, 3, cv2.INPAINT_TELEA)
+def inside_box(box: dict, X: np.ndarray, margin: float = 0.0) -> np.ndarray:
+    """True for points X (N, 3) inside a yaw-only box grown by `margin`."""
+    c, s = np.cos(box["yaw_rad"]), np.sin(box["yaw_rad"])
+    local = (X[:, :2] - np.array(box["center"][:2])) @ np.array([[c, -s], [s, c]])
+    half = np.array(box["extents"]) / 2 + margin
+    return (
+        (np.abs(local[:, 0]) <= half[0])
+        & (np.abs(local[:, 1]) <= half[1])
+        & (np.abs(X[:, 2] - box["center"][2]) <= half[2])
+    )
 
 
-def overview_camera(out_dir: Path, report: dict, angle_deg: float, W: int, H: int, pts: np.ndarray):
-    """(K, T_cw) of an elevated virtual camera behind the recorded paths, looking at the
-    changes (or the scene centre), rotated by `angle_deg` about the vertical axis. The focal
-    length and principal point are fitted so that 98 % of `pts` fill the image."""
-    from src.utils.geometry import look_at_T_cw
+class MeshView:
+    """Ray-cast renderer for one mesh: interpolated vertex colours, soft shading, and the
+    3-D hit point of every pixel (used to tint the surface inside change boxes)."""
 
+    BACKGROUND = np.array([32, 32, 32], np.float64)
+
+    def __init__(self, mesh: dict):
+        import open3d as o3d
+        import open3d.core as o3c
+
+        self.mesh = mesh
+        self.scene = o3d.t.geometry.RaycastingScene()
+        if len(mesh["triangles"]):
+            self.scene.add_triangles(
+                o3c.Tensor(mesh["vertices"].astype(np.float32)),
+                o3c.Tensor(mesh["triangles"].astype(np.uint32)),
+            )
+
+    def render(
+        self, K: np.ndarray, T_cw: np.ndarray, W: int, H: int, tints: list[tuple[dict, list[int]]] = ()
+    ) -> np.ndarray:
+        """(H, W, 3) uint8 RGB. `tints`: (box, rgb) pairs; surface inside a box is blended
+        towards that colour, so the changed object itself lights up."""
+        import open3d.core as o3c
+
+        from src.utils.geometry import pixel_rays
+
+        img = np.tile(self.BACKGROUND, (H * W, 1))
+        if not len(self.mesh["triangles"]):
+            return img.reshape(H, W, 3).astype(np.uint8)
+        o, d = pixel_rays(K, T_cw, H, W)
+        ans = self.scene.cast_rays(o3c.Tensor(np.concatenate([o, d], axis=1).astype(np.float32)))
+        t = ans["t_hit"].numpy()
+        hit = np.isfinite(t)
+        tri = self.mesh["triangles"][ans["primitive_ids"].numpy()[hit]]
+        uv = ans["primitive_uvs"].numpy()[hit]
+        w = np.c_[1 - uv.sum(axis=1), uv]  # barycentric weights of the three vertices
+        col = np.einsum("nk,nkc->nc", w, self.mesh["colors"][tri])
+        n = np.einsum("nk,nkc->nc", w, self.mesh["normals"][tri])
+        n /= np.linalg.norm(n, axis=1, keepdims=True) + 1e-12
+        view = d[hit] / np.linalg.norm(d[hit], axis=1, keepdims=True)
+        # headlight plus a little light from above: shapes read without hiding the colours
+        shade = 0.55 + 0.35 * np.abs(np.sum(n * view, axis=1)) + 0.10 * np.clip(n[:, 2], 0, 1)
+        rgb = np.clip(col * shade[:, None], 0, 1) * 255
+        X = o[hit] + t[hit, None] * d[hit]
+        for box, color in tints:
+            m = inside_box(box, X, margin=0.02)
+            rgb[m] = 0.45 * rgb[m] + 0.55 * np.array(color, np.float64)
+        img[hit] = rgb
+        return img.reshape(H, W, 3).astype(np.uint8)
+
+
+def overview_pose(out_dir: Path, report: dict, angle_deg: float):
+    """(eye, target) of an elevated virtual camera behind the recorded paths, looking at the
+    changes (or the scene centre), rotated by `angle_deg` about the vertical axis."""
     poses = json.load(open(out_dir / "align" / "poses.json"))
     C = np.array([camera_center(np.array(p["T_cw"])) for p in poses.values()])
     fwd = np.array([np.array(p["T_cw"])[2, :3] for p in poses.values()]).mean(axis=0)
     boxes = [b for b, *_ in _boxes(report)]
     if boxes:
         target = np.mean([b["center"] for b in boxes], axis=0)
-    else:  # scene centre: about 1.5 camera-path lengths in front of the cameras
+    else:  # scene centre: about 1.5 m in front of the cameras
         target = C.mean(axis=0) + fwd / np.linalg.norm(fwd) * 1.5
     back = C.mean(axis=0) - target
     back[2] = 0
@@ -460,6 +548,15 @@ def overview_camera(out_dir: Path, report: dict, angle_deg: float, W: int, H: in
     a = np.deg2rad(angle_deg)
     back = np.array([back[0] * np.cos(a) - back[1] * np.sin(a), back[0] * np.sin(a) + back[1] * np.cos(a), 0])
     eye = target + back * dist * 1.2 + np.array([0, 0, 1.0]) * dist * 0.8
+    return eye, target
+
+
+def overview_camera(out_dir: Path, report: dict, angle_deg: float, W: int, H: int, pts: np.ndarray):
+    """(K, T_cw) for `overview_pose`; focal length and principal point are fitted so that
+    98 % of `pts` fill the image."""
+    from src.utils.geometry import look_at_T_cw
+
+    eye, target = overview_pose(out_dir, report, angle_deg)
     T = look_at_T_cw(eye, target, np.array([0.0, 0.0, 1.0]))
     Xc = pts @ T[:3, :3].T + T[:3, 3]
     Xc = Xc[Xc[:, 2] > 0.05]
@@ -472,38 +569,46 @@ def overview_camera(out_dir: Path, report: dict, angle_deg: float, W: int, H: in
     return K, T
 
 
-def render_overview(out_dir: Path, report: dict, cfg: dict, angle_deg: float, W: int, H: int, voxel: float):
-    """BEFORE | AFTER renders from one virtual camera, with change boxes and camera paths.
+def _shown(action: str, which: str | None, epoch: str) -> bool:
+    """Is this box drawn in this recording's view? Removed and old positions in A, added and
+    new positions in B."""
+    return (
+        (action == "removed" and epoch == "A")
+        or (action == "added" and epoch == "B")
+        or (action == "moved" and ((which == "before") == (epoch == "A")))
+    )
 
-    Points are splatted at twice the resolution and averaged down (anti-aliased edges
-    instead of square blocks); boxes and labels are drawn afterwards at full sharpness."""
+
+def render_overview(
+    out_dir: Path, report: dict, cfg: dict, views: dict[str, MeshView], angle_deg: float, W: int, H: int
+) -> np.ndarray:
+    """BEFORE | AFTER from one virtual camera: shaded meshes rendered at twice the size and
+    averaged down, changed surfaces tinted, then camera paths, boxes and labels."""
     import cv2
 
     ss = 2
-
-    clouds = {e: np.load(out_dir / "fusion" / f"cloud_{e}.npz") for e in ("A", "B")}
-    K, T = overview_camera(out_dir, report, angle_deg, W, H, clouds["B"]["points"])
+    pts = views["B"].mesh["vertices"]
+    K, T = overview_camera(out_dir, report, angle_deg, W, H, pts)
+    Ks = K.copy()
+    Ks[:2] *= ss  # exact for COLMAP corner-origin pixel coordinates
     poses = json.load(open(out_dir / "align" / "poses.json"))
+    boxes = list(_boxes(report))
     tiles = []
     for e in ("A", "B"):
-        c = clouds[e]
-        Ks = K.copy()
-        Ks[:2] *= ss  # exact for COLMAP corner-origin pixel coordinates
-        big = render_points(c["points"], c["colors"], Ks, T, W * ss, H * ss, voxel, fill_px=9)
+        tints = [(b, _color(cfg, a)) for b, a, _, w in boxes if _shown(a, w, e)]
+        big = views[e].render(Ks, T, W * ss, H * ss, tints)
         img = cv2.cvtColor(cv2.resize(big, (W, H), interpolation=cv2.INTER_AREA), cv2.COLOR_RGB2BGR)
-        C = np.array([camera_center(np.array(p["T_cw"])) for p in poses.values() if p["epoch"] == e])
+        C = np.array(
+            [camera_center(np.array(p["T_cw"])) for n, p in sorted(poses.items()) if p["epoch"] == e]
+        )
         uv, z = project_points(C, K, T)
+        path = np.round(uv[z > 0]).astype(np.int32)
         col = (255, 140, 80) if e == "A" else (60, 170, 255)
-        for (u, v), zz in zip(uv, z):
-            if zz > 0:
-                cv2.circle(img, (int(u), int(v)), 3, col, -1, cv2.LINE_AA)
-        for box, action, text, which in _boxes(report):
-            show = (
-                (action == "removed" and e == "A")
-                or (action == "added" and e == "B")
-                or (action == "moved" and ((which == "before") == (e == "A")))
-            )
-            if show:
+        if len(path) > 1:
+            cv2.polylines(img, [path], False, col, 2, cv2.LINE_AA)
+            cv2.circle(img, tuple(path[-1]), 4, col, -1, cv2.LINE_AA)
+        for box, action, text, which in boxes:
+            if _shown(action, which, e):
                 draw_box(img, box, K, T, _color(cfg, action), text)
         title = "BEFORE (A)" if e == "A" else "AFTER (B)"
         cv2.putText(img, title, (12, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
@@ -511,17 +616,18 @@ def render_overview(out_dir: Path, report: dict, cfg: dict, angle_deg: float, W:
     return cv2.cvtColor(np.hstack(tiles), cv2.COLOR_BGR2RGB)
 
 
-def write_overview(out_dir: Path, report: dict, cfg: dict, voxel: float) -> None:
-    """scene_3d.png (one view) and scene_3d.gif (orbit) of the fused before/after scenes."""
+def write_overview(out_dir: Path, report: dict, cfg: dict, meshes: dict[str, dict]) -> None:
+    """scene_3d.png (one view) and scene_3d.gif (a slow orbit) of the fused recordings."""
     import imageio.v3 as iio
 
+    views = {e: MeshView(m) for e, m in meshes.items()}
     W, H = cfg["overview_size"]
-    iio.imwrite(str(out_dir / "scene_3d.png"), render_overview(out_dir, report, cfg, 0.0, W, H, voxel))
-    span = cfg["overview_orbit_deg"]
-    angles = np.concatenate([np.linspace(-span, span, 13), np.linspace(span, -span, 13)[1:-1]])
+    iio.imwrite(str(out_dir / "scene_3d.png"), render_overview(out_dir, report, cfg, views, 0.0, W, H))
+    span, n = cfg["overview_orbit_deg"], 18
+    angles = np.concatenate([np.linspace(-span, span, n), np.linspace(span, -span, n)[1:-1]])
     w, h = W // 2, H // 2
-    frames = [render_overview(out_dir, report, cfg, a, w, h, voxel) for a in angles]
-    write_gif(frames, out_dir / "scene_3d.gif", duration_ms=120)
+    frames = [render_overview(out_dir, report, cfg, views, a, w, h) for a in angles]
+    write_gif(frames, out_dir / "scene_3d.gif", duration_ms=110)
 
 
 def write_gif(frames: list[np.ndarray], path: Path, duration_ms: int) -> None:
@@ -535,15 +641,18 @@ def write_gif(frames: list[np.ndarray], path: Path, duration_ms: int) -> None:
     imgs[0].save(path, save_all=True, append_images=imgs[1:], duration=duration_ms, loop=0)
 
 
-def generate_visualizations(out_dir: Path, cfg: dict, voxel: float = 0.02) -> dict:
+def generate_visualizations(out_dir: Path, cfg: dict, fusion_cfg: dict) -> dict:
     """Stage entry."""
     report = build_report(out_dir)
     with open(out_dir / "report.json", "w") as f:
         json.dump(report, f, indent=2)
     write_markdown(report, out_dir / "report.md")
     print(f"  report.json / report.md: {report['counts']}")
+    meshes = None
+    if cfg["rerun_enabled"] or cfg["overview_enabled"]:
+        meshes = load_meshes(out_dir, fusion_cfg["extract_weight_threshold"])
     if cfg["rerun_enabled"]:
-        write_rerun(out_dir, report, cfg, out_dir / "changes.rrd")
+        write_rerun(out_dir, report, cfg, out_dir / "changes.rrd", meshes)
         print(f"  Rerun recording: {out_dir / 'changes.rrd'}")
     if cfg["mp4_enabled"]:
         write_side_by_side(out_dir, report, cfg, out_dir / "side_by_side.mp4")
@@ -552,7 +661,7 @@ def generate_visualizations(out_dir: Path, cfg: dict, voxel: float = 0.02) -> di
         write_floor_map(out_dir, report, cfg, out_dir / "floor_map.png")
         print(f"  Floor map: {out_dir / 'floor_map.png'}")
     if cfg["overview_enabled"]:
-        write_overview(out_dir, report, cfg, voxel)
+        write_overview(out_dir, report, cfg, meshes)
         print(f"  3-D overview: {out_dir / 'scene_3d.png'}, {out_dir / 'scene_3d.gif'}")
     append_visuals(out_dir / "report.md")
     return report
