@@ -135,7 +135,7 @@ def look_at_T_cw(eye: np.ndarray, target: np.ndarray, up: np.ndarray) -> np.ndar
     """Build T_cw for an OpenCV camera at `eye` looking at `target`.
 
     `up` is the approximate world up direction; the camera's -y axis is aligned to it.
-    Used by synthetic tests.
+    Used by the synthetic tests and the overview render.
     """
     eye = np.asarray(eye, dtype=np.float64)
     z = np.asarray(target, dtype=np.float64) - eye

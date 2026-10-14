@@ -74,3 +74,34 @@ def test_unchanged_room_keeps_route():
     assert r["route_cells_blocked_now"] == 0
     assert r["blocked_by_changes"] == []
     assert "replanned" not in r
+
+
+def test_ros_map_orientation_and_values(tmp_path):
+    from src.navigation import Grid2D, write_ros_map
+
+    grid = Grid2D(x0=-1.0, y0=2.0, nx=4, ny=3, cell=0.5)
+    occ = np.zeros((4, 3), bool)
+    free = np.zeros((4, 3), bool)
+    occ[3, 2] = True  # largest x, largest y -> top-right pixel
+    free[0, 0] = True  # smallest x, smallest y -> bottom-left pixel
+    write_ros_map(tmp_path / "m", occ, free, grid)
+    raw = (tmp_path / "m.pgm").read_bytes()
+    header, data = raw[:11], raw[11:]
+    assert header == b"P5\n4 3\n255\n"
+    img = np.frombuffer(data, np.uint8).reshape(3, 4)
+    assert img[0, 3] == 0 and img[2, 0] == 254 and img[1, 1] == 205
+    yaml_text = (tmp_path / "m.yaml").read_text()
+    assert "origin: [-1.0000, 2.0000, 0.0]" in yaml_text and "resolution: 0.5" in yaml_text
+
+
+def test_replanning_never_crosses_unknown_space():
+    grid, occ_A, occ_B = scene(with_box=True)
+    centres_y = grid.centers(np.c_[np.zeros(grid.ny, int), np.arange(grid.ny)])[:, 1]
+    known = np.broadcast_to(centres_y < 1.3, (grid.nx, grid.ny)).copy()  # above y = 1.3 unobserved
+    r = check_route(ROUTE, occ_A, occ_B, grid, [BOX_CHANGE], CFG, known_free=known)
+    p = np.array(r["replanned"])
+    assert p[:, 1].max() < 1.3  # went around below the box, not through the unknown side
+    known[:] = False
+    known[:, (centres_y > 0.7) & (centres_y < 1.3)] = True  # only the blocked corridor is known
+    r = check_route(ROUTE, occ_A, occ_B, grid, [BOX_CHANGE], CFG, known_free=known)
+    assert r["replanned"] is None

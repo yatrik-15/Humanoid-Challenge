@@ -4,14 +4,19 @@ The camera path of recording A is a route a person actually walked. Both fused c
 turned into 2-D occupancy grids (points in the obstacle height band), inflated by the robot
 radius, and A's route is replayed on B's grid. Route cells that are now occupied are
 blocked; they are attributed to the detected changes whose footprint they fall in, and a
-new route between the same endpoints is planned with A* on B's grid.
+new route between the same endpoints is planned with A* on B's grid, through cells known to be traversable only (floor seen in either
+recording, or walked): unobserved space is never assumed free.
 
 Only meaningful when z = 0 is the floor: in recordings where the dominant plane is a bed or
 table the "obstacle band" is relative to that surface, so the stage is skipped unless the
 floor was found and the cameras sit at a plausible handheld height above it.
 
+Both grids are also written as ROS map_server maps (trinary PGM + YAML), so the "after"
+map can be loaded by a standard 2-D navigation stack: occupied = obstacle points in the
+height band, free = floor seen and nothing above it, unknown = not observed.
+
 Reads  fusion/cloud_{A,B}.npz, align/{alignment,poses}.json, cluster/changes.json
-Writes nav/route.json
+Writes nav/route.json, nav/map_{A,B}.pgm, nav/map_{A,B}.yaml
 """
 
 import heapq
@@ -55,6 +60,61 @@ def occupancy(points: np.ndarray, grid: Grid2D, z_band: tuple[float, float], min
         ij = grid.index(pts)
         np.add.at(counts, (ij[:, 0], ij[:, 1]), 1)
     return counts >= min_points
+
+
+def floor_seen(points: np.ndarray, grid: Grid2D, z_max: float, min_points: int) -> np.ndarray:
+    """(nx, ny) bool: cells where the floor itself (|z| below z_max) was reconstructed."""
+    pts = points[np.abs(points[:, 2]) < z_max]
+    counts = np.zeros((grid.nx, grid.ny), dtype=int)
+    if len(pts):
+        ij = grid.index(pts)
+        np.add.at(counts, (ij[:, 0], ij[:, 1]), 1)
+    return counts >= min_points
+
+
+def traversable(
+    clouds: dict[str, np.ndarray], paths: list[np.ndarray], grid: Grid2D, z_max: float, cfg: dict
+) -> np.ndarray:
+    """Cells known to be traversable: floor reconstructed in either recording (grown by one
+    cell, floor points are sparse) or within the robot radius of where someone walked. The
+    floor right under the walker is rarely in view, so the walked paths are added; anything
+    else is unknown and is not planned through."""
+    from scipy.ndimage import binary_dilation
+
+    seen = np.zeros((grid.nx, grid.ny), bool)
+    for pts in clouds.values():
+        seen |= floor_seen(pts, grid, z_max, cfg["min_points_per_cell"])
+    seen = binary_dilation(seen, iterations=1)
+    walked = np.zeros_like(seen)
+    for xy in paths:
+        ij = grid.index(densify(xy, grid.cell / 2))
+        walked[ij[:, 0], ij[:, 1]] = True
+    return seen | inflate(walked, int(np.ceil(cfg["robot_radius"] / grid.cell)))
+
+
+def write_ros_map(path_stem: Path, occ: np.ndarray, free: np.ndarray, grid: Grid2D) -> None:
+    """ROS map_server map: <stem>.pgm (0 occupied, 254 free, 205 unknown, as map_saver
+    writes them) and <stem>.yaml. Image row 0 is the largest y; `origin` is the lower-left
+    corner of the lower-left cell in the world frame (x, y, yaw)."""
+    img = np.full(occ.shape, 205, np.uint8)
+    img[free & ~occ] = 254
+    img[occ] = 0
+    img = np.flipud(img.T)  # (nx, ny) indexed by (x, y) -> rows = y descending
+    h, w = img.shape
+    with open(path_stem.with_suffix(".pgm"), "wb") as f:
+        f.write(f"P5\n{w} {h}\n255\n".encode())
+        f.write(img.tobytes())
+    path_stem.with_suffix(".yaml").write_text(
+        f"image: {path_stem.with_suffix('.pgm').name}\n"
+        "mode: trinary\n"
+        f"resolution: {grid.cell}\n"
+        f"origin: [{grid.x0:.4f}, {grid.y0:.4f}, 0.0]\n"
+        "negate: 0\n"
+        "occupied_thresh: 0.65\n"
+        "free_thresh: 0.196\n",
+        encoding="utf-8",
+        newline="\n",
+    )
 
 
 def inflate(occ: np.ndarray, radius_cells: int) -> np.ndarray:
@@ -134,8 +194,12 @@ def check_route(
     grid: Grid2D,
     changes: list[dict],
     cfg: dict,
+    known_free: np.ndarray | None = None,
 ) -> dict:
-    """Replay route_xy on the inflated occupancy of A and B; replan on B if it is blocked."""
+    """Replay route_xy on the inflated occupancy of A and B; replan on B if it is blocked.
+
+    `known_free` (bool grid) restricts the new route to cells known to be traversable;
+    without it, every cell that is not occupied counts as free."""
     r_cells = int(np.ceil(cfg["robot_radius"] / grid.cell))
     blocked_A, blocked_B = inflate(occ_A, r_cells), inflate(occ_B, r_cells)
     route = densify(route_xy, grid.cell / 2)
@@ -162,7 +226,10 @@ def check_route(
         "blocked_points": np.round(route[newly], 3).tolist(),
     }
     if blockers or newly.sum() >= cfg["min_blocked_cells"]:
-        path = astar(blocked_B, tuple(ij[0]), tuple(ij[-1]))
+        plan_blocked = blocked_B if known_free is None else blocked_B | ~known_free
+        for end in (ij[0], ij[-1]):  # the endpoints were stood on
+            plan_blocked[tuple(end)] = False
+        path = astar(plan_blocked, tuple(ij[0]), tuple(ij[-1]))
         if path is None:
             result["replanned"] = None
         else:
@@ -191,9 +258,16 @@ def plan_routes(out_dir: Path, cfg: dict, obstacle_z_band, floor_height_range) -
     grid = Grid2D.around(np.vstack([clouds["A"][:, :2], clouds["B"][:, :2], route]), cfg["cell_size"], 0.5)
     occ = {e: occupancy(clouds[e], grid, obstacle_z_band, cfg["min_points_per_cell"]) for e in clouds}
     changes = json.load(open(out_dir / "cluster" / "changes.json"))
-    result = check_route(route, occ["A"], occ["B"], grid, changes, cfg)
+    route_B = np.array(
+        [camera_center(np.array(p["T_cw"]))[:2] for n, p in sorted(poses.items()) if p["epoch"] == "B"]
+    )
+    free = traversable(clouds, [route, route_B], grid, obstacle_z_band[0], cfg)
+    result = check_route(route, occ["A"], occ["B"], grid, changes, cfg, known_free=free)
 
     (out_dir / "nav").mkdir(exist_ok=True)
+    for e in ("A", "B"):
+        free = floor_seen(clouds[e], grid, obstacle_z_band[0], cfg["min_points_per_cell"])
+        write_ros_map(out_dir / "nav" / f"map_{e}", occ[e], free, grid)
     with open(out_dir / "nav" / "route.json", "w") as f:
         json.dump(result, f, indent=2)
     msg = f"  route walked in A: {result['route_length']:.2f} m, {result['route_cells_blocked_now']} cells now blocked"
