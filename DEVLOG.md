@@ -983,3 +983,9 @@ not put an added or moved object where a removed one stood.
   walkway ball's new spot has no added evidence within 0.4 m (nothing to recover by a filter),
   and the shoebox's VLM replies copied the prompt's `<0..1>` and named the yellow cloth behind
   it, so accepting them would replace "(no label)" with a wrong label.
+- Privacy: the shipped input videos carried the phone's GPS position in their container
+  metadata (copied through the re-encode). Stripped from all eight by remuxing without
+  metadata (`-map_metadata -1 -c copy`); the compressed frames are bit-identical (SHA-256 of
+  every video packet compared), so no result changes. `scripts/package_example.py` now drops
+  metadata when it encodes. README opening reworked: one-paragraph summary, the hero GIF, an
+  at-a-glance table of the measured results, browser links and the one-line run.

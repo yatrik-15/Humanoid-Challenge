@@ -31,7 +31,10 @@ VIEWER = (
 
 
 def encode_inputs(videos: list[Path], dst: Path) -> None:
-    """Re-encode the before / after videos to input/A.mp4 and input/B.mp4 (rotation applied)."""
+    """Re-encode the before / after videos to input/A.mp4 and input/B.mp4 (rotation applied).
+
+    Phone videos carry metadata such as the GPS position where they were filmed; it is dropped.
+    """
     import imageio_ffmpeg
 
     (dst / "input").mkdir(parents=True, exist_ok=True)
@@ -39,7 +42,7 @@ def encode_inputs(videos: list[Path], dst: Path) -> None:
         subprocess.run(
             [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-loglevel", "error", "-i", str(src), "-vf", "fps=10",
              "-c:v", "libx264", "-crf", "23", "-preset", "slow", "-pix_fmt", "yuv420p", "-an",
-             "-movflags", "+faststart", str(dst / "input" / f"{epoch}.mp4")],
+             "-map_metadata", "-1", "-movflags", "+faststart", str(dst / "input" / f"{epoch}.mp4")],
             check=True,
         )  # fmt: skip
 

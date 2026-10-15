@@ -2,22 +2,26 @@
 
 [![tests](https://github.com/yatrik-15/Humanoid-Challenge/actions/workflows/tests.yml/badge.svg)](https://github.com/yatrik-15/Humanoid-Challenge/actions/workflows/tests.yml) [![license: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Given two phone videos of the same indoor area, one recorded before and one after, this
-finds which objects were **added**, **removed** or **moved**, where they are in 3-D, and what
-they are. Differences that only come from a different viewpoint, occlusion or incomplete
-coverage are kept as **unknown** rather than reported as changes, and the result is checked
-against the path a robot would walk: if a change now blocks it, a new route is planned.
+**Two phone videos of a room in, a 3-D account of what was added, removed or moved out, with
+what each object is, where it is, and whether a robot's path is still free.** A change is only
+reported where both videos actually saw the space: a different viewpoint, an occlusion or a
+corner one video never filmed is kept as *unknown*, never guessed into a change.
 
-![fused 3-D scene before and after, with the detected changes](examples/hero/scene_3d.gif)
+![both recordings fused in 3-D: the backpack moved onto the bed, the shoebox removed, the stool added](examples/hero/scene_3d.gif)
 
-*Hero pair: both recordings fused into one 3-D frame and rendered from the same virtual
-camera, left before, right after. All three kinds of change in one room, all three found and
-nothing else reported: the backpack moved from the floor onto the bed (orange), the orange
-shoebox was taken off the bed (red) and a stool was added (green). Every change is within
-25 cm of where it was clicked by hand in the video frames. Full report:
-[`examples/hero`](examples/hero).*
+*One room, all three kinds of change, all three found and nothing else reported: the backpack
+moved from the floor onto the bed (orange), the shoebox was taken off the bed (red), a stool
+was added (green). Left: before. Right: after. Both videos fused into one 3-D frame.
+[Full report](examples/hero).*
 
-**Explore the results in 3-D in your browser, nothing to install:** [hero](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd) · [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
+| at a glance | |
+|---|---|
+| **Hero pair** (move + removal + addition) | **3 of 3 found, 0 false**, each within 25 cm of a hand-clicked label |
+| **Six real pairs, scored against hand labels** | precision **0.67** vs **0.27** for the same pipeline without visibility reasoning (9 reports vs 26) |
+| **Unchanged room, different camera path** | **0** changes reported |
+| **Synthetic room with exact ground truth** | precision **1.00**, recall **1.00**; camera poses within 1.4 mm |
+
+**See it in 3-D in your browser, nothing to install:** [hero](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd) · [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (opens BEFORE and AFTER side by side, with the report). **Run it:** `python run.py --video_a before.mp4 --video_b after.mp4 --out out/room` ([Quick start](#quick-start)).
 
 ## Highlights
 
@@ -172,6 +176,10 @@ hero pairs were run with `--known_focal_rel 1.64` (see Design choices). Open the
 | `floor_map.png` | top-down map of the after-room: floor seen empty / obstacle / never observed, change footprints, move arrows, both camera paths, and the route check |
 | `nav/route.json`, `nav/map_{A,B}.pgm/.yaml` | route check result and ROS `map_server` occupancy maps (only when the floor is in view) |
 | `changes.rrd` | Rerun recording that opens on a BEFORE / AFTER layout: surface meshes, camera paths, change boxes, move arrows (frustums, points and evidence voxels with `viz.rerun_extras`) |
+
+The browser links at the top open these `.rrd` files from GitHub (each under 2 MB: surfaces
+simplified to 40 k triangles per recording; `viz.rerun_extras: true` also logs every camera
+frustum, the raw points and the unknown regions).
 
 Re-run only the later stages after changing a setting:
 `python run.py --out out/bottle --stages diff,cluster,semantics,viz`.
