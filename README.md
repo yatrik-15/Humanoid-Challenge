@@ -176,6 +176,11 @@ hero pairs were run with `--known_focal_rel 1.64` (see Design choices). Open the
 Re-run only the later stages after changing a setting:
 `python run.py --out out/bottle --stages diff,cluster,semantics,viz`.
 
+Package a run as an example folder the way the shipped ones were made (copies the outputs,
+draws the before / after still, writes the folder's README and, with `--videos`, re-encodes
+the inputs at 10 fps so the run can be repeated on exactly those files):
+`python scripts/package_example.py out/bottle bottle --videos A.mp4 B.mp4 --rrd`.
+
 ## How it works
 
 ```mermaid
@@ -351,7 +356,8 @@ src/                    frames, sfm, pairs, alignment, depth(_align), fusion, di
                         navigation, baseline, semantics, utils/geometry
 src/viz/                report, images, floor_map, render (3-D overview), rerun_export
 tests/                  unit tests, synthetic renderer and change test, synthetic videos
-eval/                   annotate.py (ground truth), run_eval.py, results/
+eval/                   annotate.py (ground truth), run_eval.py, gt/ (hand labels), results/
+scripts/                package_example.py (builds examples/<pair>/ from a run)
 examples/<pair>/        input videos (bottle, stool, walkway) and every output of the run
 DEVLOG.md               dated log of runs, measurements, bugs and decisions
 ```

@@ -976,3 +976,10 @@ What the hero recordings showed about recording a pair: walk past the area (reco
 on the spot: 0.4 m paths, 5 view groups, 0 changes); keep doors to other rooms shut; stand
 objects where they can be seen from more than one side (against a wall they look flat); do
 not put an added or moved object where a removed one stood.
+- The script that built `examples/<pair>/` moved into the repo as
+  `scripts/package_example.py` (argparse, `--videos` re-encodes the inputs as shipped). Rebuilding
+  all six example folders with it changed no file; re-encoding the hero inputs with it gives
+  the shipped files' exact sizes and frame counts. Checked before this, and dropped: the
+  walkway ball's new spot has no added evidence within 0.4 m (nothing to recover by a filter),
+  and the shoebox's VLM replies copied the prompt's `<0..1>` and named the yellow cloth behind
+  it, so accepting them would replace "(no label)" with a wrong label.
