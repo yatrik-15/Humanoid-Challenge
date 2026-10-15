@@ -40,6 +40,8 @@ alignment:
   ransac_iterations: 2000
   seed: 0
   fallback_floor_percentile: 2.0  # no plane found: z = 0 at this height percentile
+  outlier_min_jump_m: 0.15        # drop a frame whose camera centre is this far from the midpoint of
+  outlier_span_factor: 2.0        #   its neighbours AND this x their distance (hero A_0044: 0.61 m)
   min_camera_path_m: 1.0          # warn when a recording's camera path is shorter (turning on
                                   #   the spot gives few viewpoints; walkway 3.1 m, hero v1 0.4 m)
   floor_camera_height_range: [1.1, 1.9]  # z = 0 counts as the floor (floor snapping, route
@@ -106,6 +108,10 @@ diff:
 cluster:
   dbscan_eps: 0.06                # about two evidence voxels
   dbscan_min_points: 10
+  min_neighbors: 8                # drop evidence voxels with fewer neighbours within neighbor_radius
+  neighbor_radius: 0.05           #   before clustering: cuts thin outline lines that bridged the
+                                  #   hero stool to the bed. 7-8 work on all pairs; 9+ loses the
+                                  #   bottle (the smallest object). Chosen on these recordings.
   min_frontal_area: 0.005         # product of the two largest extents (~5 x 10 cm). Evidence
                                   #   only covers the visible side, so volume is not used.
   min_cluster_points: 20
@@ -121,7 +127,8 @@ cluster:
                                   #   recording's surface (median distance)
 
 moved:
-  max_volume_ratio: 2.0
+  max_volume_ratio: 3.0           # evidence covers only the sides each recording saw, so the
+                                  #   same object can differ 2x in box volume (hero backpack: 2.03)
   max_extent_ratio: 2.0           # per sorted box extent
   min_appearance_sim: 0.3         # hue/saturation histogram intersection, 0..1
   max_centroid_distance: 3.0

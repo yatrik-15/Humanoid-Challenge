@@ -121,3 +121,21 @@ def test_planarity_separates_a_wall_patch_from_an_object_shell():
         [np.c_[u, np.zeros(700), v], np.c_[np.zeros(700), u, v], np.c_[u, v, np.full(700, 0.4)]]
     )
     assert planarity(patch) < 0.15 < planarity(shell)
+
+
+def test_neighbour_filter_cuts_a_thin_line_bridging_two_objects():
+    from src.cluster import cluster_points
+
+    g = np.arange(0, 0.3, 0.03)
+    patch = np.array([[x, 0.0, z] for x in g for z in g])  # 30 x 30 cm surface of an object
+    a, b = patch, patch + [1.0, 0.0, 0.0]  # two objects 1 m apart
+    xs = np.arange(0.3, 1.0, 0.03)
+    line = np.vstack(
+        [np.c_[xs, np.zeros(len(xs)), np.full(len(xs), z)] for z in (0.12, 0.15)]
+    )  # outline strip
+    pts = np.vstack([a, b, line])
+    views = np.full(len(pts), 3)
+    cfg = dict(CCFG, min_frontal_area=0, min_planarity=0, min_cluster_thickness=0, dbscan_eps=0.045)
+    assert len(cluster_points(pts, views, cfg, 0.03)) == 1  # bridged
+    split = cluster_points(pts, views, dict(cfg, min_neighbors=8, neighbor_radius=0.05), 0.03)
+    assert len(split) == 2

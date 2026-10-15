@@ -99,8 +99,19 @@ def cluster_points(
     (#evidence voxels) * voxel_size^3; "box_volume" is the OBB volume with each extent
     floored at one voxel (flat clusters would otherwise have zero volume).
     """
+    from scipy.spatial import cKDTree
     from sklearn.cluster import DBSCAN
 
+    if len(points) == 0:
+        return []
+    # Evidence along an object's outline (where depth is unreliable) forms one-voxel-thin
+    # lines that can bridge separate objects into one cluster; object evidence forms patches.
+    if cfg.get("min_neighbors", 0) > 0:
+        counts = np.array(
+            [len(n) - 1 for n in cKDTree(points).query_ball_point(points, cfg["neighbor_radius"])]
+        )
+        keep = counts >= cfg["min_neighbors"]
+        points, views = points[keep], views[keep]
     if len(points) == 0:
         return []
     labels = DBSCAN(eps=cfg["dbscan_eps"], min_samples=cfg["dbscan_min_points"]).fit_predict(points)

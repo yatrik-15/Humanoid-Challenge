@@ -143,3 +143,22 @@ def test_camera_path_lengths_per_recording_in_frame_order():
     centers = np.array([[0, 3, 0], [0, 0, 0], [1, 0, 0], [0, 0, 0], [1, 1, 0]], float)
     lengths = camera_path_lengths(names, centers)
     assert lengths == {"A": 2.0, "B": 3.0}
+
+
+def test_pose_outliers_flags_a_frame_that_jumps_away_from_its_neighbours():
+    from src.alignment import pose_outliers
+    from src.utils.geometry import look_at_T_cw
+
+    up = np.array([0.0, 0.0, 1.0])
+
+    def pose(x, y=0.0):
+        return {
+            "epoch": "A",
+            "T_cw": look_at_T_cw(np.array([x, y, 1.3]), np.array([x, 3.0, 0.5]), up).tolist(),
+        }
+
+    poses = {f"A_{i:04d}.jpg": pose(0.05 * i) for i in range(1, 11)}  # 5 cm steps sideways
+    poses["A_0006.jpg"] = pose(0.30, 0.6)  # registered 60 cm off the path
+    assert pose_outliers(poses, 0.15, 2.0) == ["A_0006.jpg"]
+    fast = {f"A_{i:04d}.jpg": pose(0.4 * i) for i in range(1, 6)}  # quick but smooth motion
+    assert pose_outliers(fast, 0.15, 2.0) == []

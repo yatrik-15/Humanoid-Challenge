@@ -253,6 +253,26 @@ def compute_similarity(
     return s, R, t, mode, is_metric
 
 
+def pose_outliers(poses: dict[str, dict], min_jump: float, span_factor: float) -> list[str]:
+    """Frames whose camera centre jumps away from both neighbours in the same recording.
+
+    A handheld video moves smoothly, so a frame's centre lies close to the midpoint of the
+    previous and next frame. A frame more than `min_jump` from that midpoint and more than
+    `span_factor` times the neighbours' own distance from it was registered in the wrong
+    place (e.g. matched onto a repetitive pattern). Its depth would be fused into the wrong
+    part of the room. First and last frames are not tested.
+    """
+    out = []
+    for e in ("A", "B"):
+        names = sorted(n for n, p in poses.items() if p["epoch"] == e)
+        C = [camera_center(np.array(poses[n]["T_cw"])) for n in names]
+        for i in range(1, len(C) - 1):
+            jump = np.linalg.norm(C[i] - (C[i - 1] + C[i + 1]) / 2)
+            if jump > min_jump and jump > span_factor * np.linalg.norm(C[i + 1] - C[i - 1]):
+                out.append(names[i])
+    return out
+
+
 def camera_path_lengths(names: list[str], centers: np.ndarray) -> dict[str, float]:
     """Length of each recording's camera path (A_*/B_* frames in order), in world units."""
     out = {}
@@ -321,10 +341,21 @@ def align_scene(out_dir: Path, config: dict) -> dict:
         "camera_height_median": float(np.median(new_cams[:, 2])),
         "num_points3D": int(len(points)),
         "metric_depth_stats": metric_stats,
-        "camera_path_length": camera_path_lengths(
-            [model.image(i).name for i in model.reg_image_ids()], new_cams
-        ),
     }
+    poses = export_poses(model, align_dir / "poses.json")
+    dropped = pose_outliers(poses, config["outlier_min_jump_m"], config["outlier_span_factor"])
+    if dropped:
+        kept = {n: p for n, p in poses.items() if n not in dropped}
+        with open(align_dir / "poses.json", "w") as f:
+            json.dump(kept, f, indent=1)
+        print(f"  Dropped {len(dropped)} frame(s) whose pose jumps away from both neighbours: {dropped}")
+        poses = kept
+    report["dropped_pose_outliers"] = dropped
+    # path lengths after dropping outliers: a misplaced frame adds its jump out and back
+    names = sorted(poses)
+    report["camera_path_length"] = camera_path_lengths(
+        names, np.array([camera_center(np.array(poses[n]["T_cw"])) for n in names])
+    )
     report["camera_path_short"] = (
         sorted(e for e, L in report["camera_path_length"].items() if L < config["min_camera_path_m"])
         if is_metric
@@ -332,7 +363,6 @@ def align_scene(out_dir: Path, config: dict) -> dict:
     )
     with open(align_dir / "alignment.json", "w") as f:
         json.dump(report, f, indent=2)
-    export_poses(model, align_dir / "poses.json")
     print(
         f"  Scale mode: {mode} (metric={is_metric}), s={s:.4f}, "
         f"median camera height: {report['camera_height_median']:.3f}"
