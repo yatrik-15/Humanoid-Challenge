@@ -139,3 +139,12 @@ def test_neighbour_filter_cuts_a_thin_line_bridging_two_objects():
     assert len(cluster_points(pts, views, cfg, 0.03)) == 1  # bridged
     split = cluster_points(pts, views, dict(cfg, min_neighbors=8, neighbor_radius=0.05), 0.03)
     assert len(split) == 2
+
+
+def test_above_floor_drops_reflections_under_the_floor_only():
+    from src.cluster import above_floor
+
+    stool = {"center": [0.0, 1.0, 0.25], "extents": [0.5, 0.5, 0.45]}
+    rug = {"center": [1.0, 1.0, 0.0], "extents": [1.0, 0.8, 0.04]}  # touches the floor
+    reflection = {"center": [1.8, 0.4, -0.7], "extents": [0.3, 0.2, 0.25]}  # entirely below
+    assert above_floor([stool, rug, reflection], 0.15) == [stool, rug]

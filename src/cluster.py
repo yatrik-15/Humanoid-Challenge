@@ -236,6 +236,16 @@ def _box_json(c: dict) -> dict:
     }
 
 
+def above_floor(clusters: list[dict], max_below: float) -> list[dict]:
+    """Drop clusters lying entirely more than `max_below` under the floor plane (z = 0).
+
+    The floor is chosen so that almost no reconstructed point lies below it; nothing can
+    stand under it, but a glossy floor mirrors the room, and depth estimated on those
+    reflections puts surfaces beneath the floor that differ between viewpoints.
+    """
+    return [c for c in clusters if c["center"][2] + c["extents"][2] / 2 >= -max_below]
+
+
 def cluster_changes(
     out_dir: Path, cluster_cfg: dict, moved_cfg: dict, evidence_voxel_size: float
 ) -> list[dict]:
@@ -254,6 +264,9 @@ def cluster_changes(
     added = cluster_points(
         ev["added_points"], ev["added_views"], cluster_cfg, evidence_voxel_size, trees["A"]
     )
+    if json.load(open(out_dir / "align" / "alignment.json"))["floor_found"]:
+        removed = above_floor(removed, cluster_cfg["max_below_floor"])
+        added = above_floor(added, cluster_cfg["max_below_floor"])
     margin = moved_cfg["appearance_box_margin"]
     for c in removed:  # removed object's appearance lives in epoch A
         c["hist"] = hue_sat_histogram(

@@ -123,6 +123,8 @@ cluster:
   min_planarity: 0.15             # reject flat patches: smallest / middle principal variance.
                                   #   Real changes measured 0.17-0.80, wall and window
                                   #   patches 0.06-0.13 (DEVLOG, 2026-10-14)
+  max_below_floor: 0.15           # floor found: drop clusters whose top is this far below it
+                                  #   (reflections in a glossy floor; none of 10 runs has a real one)
   min_surface_gap: 0.06           # reject if the evidence lies this close to the other
                                   #   recording's surface (median distance)
 
