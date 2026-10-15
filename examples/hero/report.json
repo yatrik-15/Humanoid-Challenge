@@ -4,276 +4,373 @@
   "world_frame": "+z up; z=0 is the dominant horizontal support plane found by RANSAC (the floor, or a bed/table top when the floor is not visible)",
   "counts": {
     "moved": 1,
-    "removed": 0,
+    "removed": 1,
     "added": 1
   },
-  "unknown_evidence_voxels": 860,
+  "unknown_evidence_voxels": 958,
   "changes": [
     {
       "id": 0,
       "action": "moved",
       "label": "backpack",
       "label_confidence": 0.8,
-      "description": "Backpack moved: An object moved. Before: centre at x=0.06, y=1.43 m (approx.); size about 0.31 x 0.19 x 0.39 m (approx.) (top 0.32 m (approx.) above the z=0 plane). After: centre at x=-1.03, y=1.81 m (approx.); size about 0.48 x 0.20 x 0.30 m (approx.) (top 0.61 m (approx.) above the z=0 plane). Displacement 1.20 m (approx.) (dx=-1.09, dy=+0.38, dz=+0.34).",
-      "spatial_summary": "The backpack is on top of the bed, which is on top of the floor.",
+      "description": "Backpack moved: An object moved. Before: centre at x=0.55, y=1.20 m (approx.); size about 0.30 x 0.20 x 0.36 m (approx.) (top 0.06 m (approx.) above the z=0 plane). After: centre at x=1.00, y=1.69 m (approx.); size about 0.52 x 0.31 x 0.30 m (approx.) (top 0.53 m (approx.) above the z=0 plane). Displacement 0.83 m (approx.) (dx=+0.45, dy=+0.49, dz=+0.49).",
+      "spatial_summary": "The backpack is on the bed, with the red blanket behind it and the door to the right.",
       "label_check": null,
-      "supporting_view_groups": 13,
-      "num_evidence_voxels": 501,
+      "supporting_view_groups": 8,
+      "num_evidence_voxels": 640,
       "box_before": {
         "center": [
-          0.0578,
-          1.4293,
-          0.1237
+          0.5471,
+          1.1991,
+          -0.1197
         ],
         "extents": [
-          0.3118,
-          0.1851,
-          0.3891
+          0.302,
+          0.197,
+          0.3612
         ],
-        "yaw_rad": -2.6914,
+        "yaw_rad": 2.8467,
         "corners": [
           [
-            0.1579,
-            1.5805,
-            -0.0709
+            0.7202,
+            1.2494,
+            -0.3003
           ],
           [
-            0.1579,
-            1.5805,
-            0.3182
+            0.7202,
+            1.2494,
+            0.0609
           ],
           [
-            0.2384,
-            1.4138,
-            -0.0709
+            0.6629,
+            1.0609,
+            -0.3003
           ],
           [
-            0.2384,
-            1.4138,
-            0.3182
+            0.6629,
+            1.0609,
+            0.0609
           ],
           [
-            -0.1229,
-            1.4448,
-            -0.0709
+            0.4312,
+            1.3372,
+            -0.3003
           ],
           [
-            -0.1229,
-            1.4448,
-            0.3182
+            0.4312,
+            1.3372,
+            0.0609
           ],
           [
-            -0.0423,
-            1.2781,
-            -0.0709
+            0.374,
+            1.1487,
+            -0.3003
           ],
           [
-            -0.0423,
-            1.2781,
-            0.3182
+            0.374,
+            1.1487,
+            0.0609
           ]
         ]
       },
       "box_after": {
         "center": [
-          -1.0293,
-          1.8131,
-          0.4666
+          0.9974,
+          1.6881,
+          0.3753
         ],
         "extents": [
-          0.4816,
-          0.2044,
-          0.2956
+          0.5208,
+          0.3149,
+          0.303
         ],
-        "yaw_rad": 2.3057,
+        "yaw_rad": 1.0346,
         "corners": [
           [
-            -0.792,
-            1.7029,
-            0.3188
+            0.9997,
+            1.3838,
+            0.2238
           ],
           [
-            -0.792,
-            1.7029,
-            0.6144
+            0.9997,
+            1.3838,
+            0.5268
           ],
           [
-            -0.9437,
-            1.5659,
-            0.3188
+            0.729,
+            1.5447,
+            0.2238
           ],
           [
-            -0.9437,
-            1.5659,
-            0.6144
+            0.729,
+            1.5447,
+            0.5268
           ],
           [
-            -1.1149,
-            2.0602,
-            0.3188
+            1.2658,
+            1.8315,
+            0.2238
           ],
           [
-            -1.1149,
-            2.0602,
-            0.6144
+            1.2658,
+            1.8315,
+            0.5268
           ],
           [
-            -1.2666,
-            1.9232,
-            0.3188
+            0.9951,
+            1.9924,
+            0.2238
           ],
           [
-            -1.2666,
-            1.9232,
-            0.6144
+            0.9951,
+            1.9924,
+            0.5268
           ]
         ]
       },
       "centroid_before": [
-        0.0578,
-        1.4293,
-        0.1237
+        0.5471,
+        1.1991,
+        -0.1197
       ],
       "centroid_after": [
-        -1.0293,
-        1.8131,
-        0.4666
+        0.9974,
+        1.6881,
+        0.3753
       ],
       "displacement": [
-        -1.0871,
-        0.3838,
-        0.343
+        0.4503,
+        0.489,
+        0.495
       ],
-      "distance": 1.2028,
+      "distance": 0.8288,
       "views": [
         {
           "epoch": "A",
-          "frame": "A_0030.jpg",
+          "frame": "A_0033.jpg",
           "box_px": [
-            454,
-            1047,
-            872,
-            1510
+            503,
+            1042,
+            830,
+            1463
           ],
-          "score": 181438.1,
+          "score": 126309.5,
           "crop": "semantics\\crops\\change00_A.jpg"
         },
         {
           "epoch": "B",
-          "frame": "B_0051.jpg",
+          "frame": "B_0002.jpg",
           "box_px": [
-            509,
-            483,
-            873,
-            884
+            246,
+            350,
+            564,
+            667
           ],
-          "score": 139760.5,
+          "score": 90221.4,
           "crop": "semantics\\crops\\change00_B.jpg"
         }
       ]
     },
     {
       "id": 1,
-      "action": "added",
-      "label": "stool",
-      "label_confidence": 0.8,
-      "description": "Stool added: An object was added (present only in the after recording). Region: centre at x=0.42, y=1.53 m (approx.); size about 0.63 x 0.43 x 0.42 m (approx.) (top 0.47 m (approx.) above the z=0 plane).",
-      "spatial_summary": "The stool is located near the bed, on the floor, and is adjacent to the bed frame.",
+      "action": "removed",
+      "label": "label_unavailable",
+      "label_confidence": 0.0,
+      "description": "An object was removed (present only in the before recording). Region: centre at x=0.38, y=1.99 m (approx.); size about 0.29 x 0.21 x 0.23 m (approx.) (top 0.61 m (approx.) above the z=0 plane). (no valid semantic label)",
+      "spatial_summary": "",
       "label_check": null,
-      "supporting_view_groups": 8,
-      "num_evidence_voxels": 566,
+      "supporting_view_groups": 10,
+      "num_evidence_voxels": 186,
       "box": {
         "center": [
-          0.4204,
-          1.5265,
-          0.2596
+          0.3802,
+          1.9944,
+          0.4902
         ],
         "extents": [
-          0.6253,
-          0.4297,
-          0.4172
+          0.2867,
+          0.2072,
+          0.2301
         ],
-        "yaw_rad": 1.8957,
+        "yaw_rad": 1.4751,
         "corners": [
           [
-            0.7238,
-            1.2988,
-            0.051
+            0.4696,
+            1.8418,
+            0.3751
           ],
           [
-            0.7238,
-            1.2988,
-            0.4682
+            0.4696,
+            1.8418,
+            0.6052
           ],
           [
-            0.3166,
-            1.1616,
-            0.051
+            0.2634,
+            1.8616,
+            0.3751
           ],
           [
-            0.3166,
-            1.1616,
-            0.4682
+            0.2634,
+            1.8616,
+            0.6052
           ],
           [
-            0.5242,
-            1.8914,
-            0.051
+            0.497,
+            2.1273,
+            0.3751
           ],
           [
-            0.5242,
-            1.8914,
-            0.4682
+            0.497,
+            2.1273,
+            0.6052
           ],
           [
-            0.117,
-            1.7542,
-            0.051
+            0.2908,
+            2.1471,
+            0.3751
           ],
           [
-            0.117,
-            1.7542,
-            0.4682
+            0.2908,
+            2.1471,
+            0.6052
           ]
         ]
       },
       "centroid": [
-        0.4204,
-        1.5265,
-        0.2596
+        0.3802,
+        1.9944,
+        0.4902
       ],
       "views": [
         {
           "epoch": "A",
-          "frame": "A_0005.jpg",
+          "frame": "A_0054.jpg",
           "box_px": [
-            327,
-            921,
-            847,
-            1554
+            623,
+            549,
+            868,
+            809
           ],
-          "score": 294550.4,
+          "score": 49367.5,
           "crop": "semantics\\crops\\change01_A.jpg"
         },
         {
           "epoch": "B",
-          "frame": "B_0008.jpg",
+          "frame": "B_0049.jpg",
           "box_px": [
-            290,
-            846,
-            856,
-            1554
+            629,
+            528,
+            855,
+            772
           ],
-          "score": 345573.5,
+          "score": 55144.0,
           "crop": "semantics\\crops\\change01_B.jpg"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "action": "added",
+      "label": "stool",
+      "label_confidence": 0.8,
+      "description": "Stool added: An object was added (present only in the after recording). Region: centre at x=0.99, y=0.84 m (approx.); size about 0.59 x 0.57 x 0.95 m (approx.) (top 0.56 m (approx.) above the z=0 plane).",
+      "spatial_summary": "The stool is on the floor near the bed and the door, close to the wall.",
+      "label_check": null,
+      "supporting_view_groups": 5,
+      "num_evidence_voxels": 685,
+      "box": {
+        "center": [
+          0.9855,
+          0.8449,
+          0.0824
+        ],
+        "extents": [
+          0.5856,
+          0.57,
+          0.9496
+        ],
+        "yaw_rad": 3.1197,
+        "corners": [
+          [
+            1.2845,
+            1.1234,
+            -0.3924
+          ],
+          [
+            1.2845,
+            1.1234,
+            0.5572
+          ],
+          [
+            1.272,
+            0.5535,
+            -0.3924
+          ],
+          [
+            1.272,
+            0.5535,
+            0.5572
+          ],
+          [
+            0.699,
+            1.1362,
+            -0.3924
+          ],
+          [
+            0.699,
+            1.1362,
+            0.5572
+          ],
+          [
+            0.6865,
+            0.5664,
+            -0.3924
+          ],
+          [
+            0.6865,
+            0.5664,
+            0.5572
+          ]
+        ]
+      },
+      "centroid": [
+        0.9855,
+        0.8449,
+        0.0824
+      ],
+      "views": [
+        {
+          "epoch": "A",
+          "frame": "A_0001.jpg",
+          "box_px": [
+            207,
+            556,
+            872,
+            1551
+          ],
+          "score": 250590.9,
+          "crop": "semantics\\crops\\change02_A.jpg"
+        },
+        {
+          "epoch": "B",
+          "frame": "B_0005.jpg",
+          "box_px": [
+            238,
+            394,
+            872,
+            1551
+          ],
+          "score": 208963.1,
+          "crop": "semantics\\crops\\change02_B.jpg"
         }
       ]
     }
   ],
   "navigation": null,
   "camera_path_length": {
-    "A": 1.3307807765221258,
-    "B": 1.2706804762659054
+    "A": 1.3219650972393806,
+    "B": 1.2530887573130196
   },
   "camera_path_short": []
 }

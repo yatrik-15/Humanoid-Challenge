@@ -2,7 +2,7 @@
 
 match radius 0.3; GT frame: {"frame": "pipeline"}
 
-| method                  |   #pred |   #GT |   TP |     P |     R |   centroid err |   region P |   region R |   region err |
-|-------------------------|---------|-------|------|-------|-------|----------------|------------|------------|--------------|
-| visibility-aware (ours) |       2 |     3 |    2 | 1     | 0.667 |          0.151 |      1     |       0.75 |        0.121 |
-| naive NN baseline       |       9 |     3 |    2 | 0.222 | 0.667 |          0.166 |      0.364 |       1    |        0.146 |
+| method                  |   #pred |   #GT |   TP |   P |   R |   centroid err |   region P |   region R |   region err |
+|-------------------------|---------|-------|------|-----|-----|----------------|------------|------------|--------------|
+| visibility-aware (ours) |       3 |     3 |    3 | 1   |   1 |          0.187 |      1     |          1 |        0.156 |
+| naive NN baseline       |       5 |     3 |    3 | 0.6 |   1 |          0.165 |      0.571 |          1 |        0.124 |

@@ -11,11 +11,11 @@ against the path a robot would walk: if a change now blocks it, a new route is p
 ![fused 3-D scene before and after, with the detected changes](examples/hero/scene_3d.gif)
 
 *Hero pair: both recordings fused into one 3-D frame and rendered from the same virtual
-camera, left before, right after. The backpack moved from the floor onto the bed (orange,
-1.20 m) and a stool was added (green); nothing else is reported. The orange shoebox standing
-on the bed in the before view was removed, but the backpack was put down in its place (the
-two hand labels are 4 cm apart), so that spot is occupied in both recordings and the removal
-is not detected. Full report: [`examples/hero`](examples/hero).*
+camera, left before, right after. All three kinds of change in one room, all three found and
+nothing else reported: the backpack moved from the floor onto the bed (orange), the orange
+shoebox was taken off the bed (red) and a stool was added (green). Every change is within
+25 cm of where it was clicked by hand in the video frames. Full report:
+[`examples/hero`](examples/hero).*
 
 **Explore the results in 3-D in your browser, nothing to install:** [hero](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd) · [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
 
@@ -23,8 +23,8 @@ is not detected. Full report: [`examples/hero`](examples/hero).*
 
 - **Unknown is never a change.** Both recordings are fused in 3-D and rendered from every
   camera pose of both; a difference only counts where the other recording actually saw
-  empty space. On the six real pairs the same pipeline without this check reports 30
-  changes, 6 of them real; with it, 8, 5 of them real. An unchanged room gives 0.
+  empty space. On the six real pairs the same pipeline without this check reports 26
+  changes, 7 of them real; with it, 9, 6 of them real. An unchanged room gives 0.
 - **One 3-D frame by construction.** Both videos go into a single structure-from-motion
   run, so there is no registration step between two separate reconstructions to fail.
   Gravity comes from the floor plane, metric scale from a metric depth model.
@@ -48,7 +48,7 @@ visibility reasoning.
 
 | pair | what changed | ours | baseline | notes |
 |---|---|---|---|---|
-| [hero](examples/hero) | backpack moved floor → bed, stool added, shoebox removed | **backpack moved 1.20 m** ✅, **stool added** ✅ 0.6 × 0.4 × 0.4 m; shoebox ❌; 0 false | 9 (2 on real changes) | the backpack was put where the shoebox stood (labels 4 cm apart), so the removal is hidden; door closed, see Limitations for the earlier recordings |
+| [hero](examples/hero) | backpack moved floor → bed, stool added, shoebox removed | **backpack moved 0.83 m** ✅, **shoebox removed** ✅, **stool added** ✅; 0 false | 5 (3 on real changes) | door closed; B recorded in evening light, A in daylight; heights unreliable (see Limitations) |
 | [bottle](examples/bottle) | bottle put on a pillow | **1 added** ✅ "water bottle", 5 × 4 × 20 cm | 3 (2 false) | |
 | [static](examples/static) | nothing (different camera path) | **0** ✅ | 1 (false) | negative control |
 | [stool](examples/stool) | stool removed | **stool removed** ✅ "footstool", 0.5 × 0.6 × 0.5 m | 7 (1 on the stool) | run with `--known_focal_rel 1.64` |
@@ -62,28 +62,28 @@ and its centre lies within 0.3 m of the labelled point; per-pair tables in
 
 | pair | real changes | ours: reported / correct | baseline: reported / correct |
 |---|---|---|---|
-| hero | 3 | 2 / **2** | 9 / 2 |
+| hero | 3 | 3 / **3** | 5 / 3 |
 | bottle | 1 | 1 / **1** | 3 / 1 |
 | stool | 1 | 1 / **1** | 7 / 1 |
 | walkway | 3 | 4 / 1 | 10 / **2** |
 | keyboard | 1 | 0 / 0 | 0 / 0 |
 | static | 0 | **0** / – | 1 / – |
-| **all six** | **9** | **8 / 5: precision 0.63, recall 0.56** | 30 / 6: precision 0.20, recall 0.67 |
+| **all six** | **9** | **9 / 6: precision 0.67, recall 0.67** | 26 / 7: precision 0.27, recall 0.78 |
 
 The baseline finds one more real change in total, on the walkway: its many fragments land
 near both positions of the moved ball, while the method finds the ball's old spot but calls
 it "removed" (its new spot was never confirmed), which this strict scoring counts as a
-miss. It pays for that recall with 24 false reports against the method's 3.
+miss. It pays for that recall with 19 false reports against the method's 3.
 Every number above comes from `examples/<pair>/report.json`, `eval/results/` and the run
 logs; how each was measured, and what was tried and dropped, is in [DEVLOG.md](DEVLOG.md).
 
 What this shows:
 
-- **All three kinds of change are found on real data**, including in one recording: in the
-  hero pair the backpack's old and new positions are linked into one move, and the added
-  stool is boxed at its own size.
+- **All three kinds of change are found on real data, in one recording**: in the hero pair
+  the backpack's old and new positions are linked into one move, the shoebox taken off the
+  bed is found as removed and the stool as added, with nothing else reported.
 
-  ![hero pair: the moved backpack before and after](examples/hero/side_by_side.jpg)
+  ![hero pair: the shoebox and backpack before, the backpack and stool after](examples/hero/side_by_side.jpg)
 
 - **Viewpoint changes are not reported as changes.** On the unchanged room the method
   reports nothing. In the static pair B also filmed a doorway that A never saw (right
@@ -95,8 +95,10 @@ What this shows:
   about 7.5 cm at the 1.5 m filming distance (5 % of depth, set by monocular depth noise);
   lowering it down to 1.5 % never produced a keyboard cluster, added false positives on the
   static pair and lost the bottle. An object removed and another put down in exactly its
-  place (the hero shoebox and backpack) leaves that space occupied in both recordings, so
-  only a thin sliver of the box remains as evidence and it is rejected as flat. Most false
+  place (an earlier hero recording: the backpack where the shoebox had stood) leaves that
+  space occupied in both recordings, so only a thin sliver of the box remained as evidence
+  and it was rejected as flat. Objects seen from one side only, pressed against a wall,
+  look flat too and were rejected in two earlier recordings. Most false
   positives come from places where monocular depth is weakest: blank walls, a black
   night-time window, reflections in a glossy floor (rejected when they lie below the floor)
   and, in an earlier hero recording, the next room seen through an open door 3.5 m away.
@@ -118,7 +120,7 @@ is blamed on the box, and the new route goes around it, never through unobserved
 On the real pairs the check ran on the walkway, where the floor is in view at a plausible
 camera height. There the corridor between the bed and the wardrobe reconstructs narrower
 than a 0.5 m wide robot, so most of the route is already blocked in A's own map and the
-result says little. In the final hero recording the plane found lies 1.0 m below the
+result says little. In the final hero recording the plane found lies 0.9 m below the
 cameras, most likely the bed top, so the check is skipped rather than run on the wrong
 surface. The top-down map still shows what is known (white: seen empty or walked, grey:
 obstacle now, hatched: never observed) and the changes:
@@ -153,7 +155,7 @@ Install (below), then run on a bundled pair:
 python run.py --video_a examples/bottle/input/A.mp4 --video_b examples/bottle/input/B.mp4 --out out/bottle
 ```
 
-30-45 minutes on a laptop RTX 4050 (measured: stool 43 min, walkway 33 min, hero 28 min), mostly feature
+30-45 minutes on a laptop RTX 4050 (measured: stool 43 min, walkway 33 min, hero 26 min), mostly feature
 matching between every pair of frames. `sfm.match_pairs: windowed` matches each frame with
 its 10 neighbours in the same video and with a third of the other video's frames: about 2x
 faster (bottle 15 min), same bottle detection, but on the stool pair the metric scale came
@@ -331,8 +333,10 @@ replanned around it, never through unobserved space), the ROS map export and the
 - Scale is approximate (median of monocular metric depth), and heights are unreliable on
   some pairs: in the hero recordings the plane found was tilted or was the bed top (an
   earlier recording measured the 45 cm bed top at 0.2-0.25 m). Positions on the floor plan
-  agree with the hand labels to 6-17 cm.
-- An object put down where another was removed hides the removal (hero shoebox).
+  agree with the hand labels to within 25 cm (hero: 7-25 cm).
+- An object put down where another was removed hides the removal, and an object seen from
+  one side only (against a wall) is rejected as flat; both happened in earlier hero
+  recordings, and the final one avoids them by where things were placed.
 - A next room seen through an open door, 3.5 m away, produced false removals in an earlier
   hero recording (depth is least accurate there); the final recording keeps the door shut.
 - People and pets are not masked and would show up as changes.

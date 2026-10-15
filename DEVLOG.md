@@ -943,3 +943,36 @@ Scores with the final hero pair (change level, centroid within 0.3 m):
 
 The baseline's extra correct change is on the walkway (fragments near both ball positions).
 `pytest` -> 64 passed.
+
+## Hero pair, recording 5 (2026-10-15, evening)
+
+B recorded once more, with the backpack upright at the foot end of the bed, about 1 m from
+where the shoebox had stood and seen from the front and the side (A unchanged). B was
+filmed at about 18:50 in evening light, A at 15:30 in daylight. 127/127 registered (68 + 59),
+1.05 px; floor plane 5.1 % (14.9 deg from camera-up) but 0.93 m below the cameras (likely the
+bed top), so no floor snapping or route check; camera paths 1.32 / 1.25 m; no frame dropped.
+
+Result: **backpack moved 0.83 m, shoebox removed, stool added, nothing else** (checked by
+projecting each detection into A and B frames). Hand labels: backpack 7 cm (before) and
+25 cm (after; clicked on the handle, the box centre is mid-bag), shoebox 7 cm, stool 25 cm
+(mostly height: the stool's box reads 0.95 m tall, heights are unreliable on this pair). The
+shoebox has no VLM label (no valid answer) and is reported as "(no label)".
+Annotation note: the first stool clicks landed on the backpack (both in the same frames);
+redone on the stool.
+
+Scores (change level, centroid within 0.3 m):
+
+| pair | real | ours reported / correct | baseline reported / correct |
+|---|---|---|---|
+| hero | 3 | 3 / 3 | 5 / 3 |
+| bottle | 1 | 1 / 1 | 3 / 1 |
+| stool | 1 | 1 / 1 | 7 / 1 |
+| walkway | 3 | 4 / 1 | 10 / 2 |
+| keyboard | 1 | 0 / 0 | 0 / 0 |
+| static | 0 | 0 | 1 |
+| total | 9 | 9 / 6 (P 0.67, R 0.67) | 26 / 7 (P 0.27, R 0.78) |
+
+What the hero recordings showed about recording a pair: walk past the area (recording 1 turned
+on the spot: 0.4 m paths, 5 view groups, 0 changes); keep doors to other rooms shut; stand
+objects where they can be seen from more than one side (against a wall they look flat); do
+not put an added or moved object where a removed one stood.

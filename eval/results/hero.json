@@ -7,54 +7,64 @@
   },
   "methods": {
     "visibility-aware (ours)": {
-      "num_pred": 2,
+      "num_pred": 3,
       "num_gt": 3,
-      "change_TP": 2,
+      "change_TP": 3,
       "change_precision": 1.0,
-      "change_recall": 0.667,
-      "change_centroid_err": 0.151,
-      "region_pred": 3,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.187,
+      "region_pred": 4,
       "region_gt": 4,
-      "region_TP": 3,
+      "region_TP": 4,
       "region_precision": 1.0,
-      "region_recall": 0.75,
-      "region_centroid_err": 0.121,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.156,
       "matches": [
+        {
+          "pred": 1,
+          "gt": 2,
+          "dist": 0.069
+        },
+        {
+          "pred": 2,
+          "gt": 1,
+          "dist": 0.245
+        },
         {
           "pred": 0,
           "gt": 0,
-          "dist": 0.139
-        },
-        {
-          "pred": 1,
-          "gt": 1,
-          "dist": 0.163
+          "dist": 0.246
         }
       ]
     },
     "naive NN baseline": {
-      "num_pred": 9,
+      "num_pred": 5,
       "num_gt": 3,
-      "change_TP": 2,
-      "change_precision": 0.222,
-      "change_recall": 0.667,
-      "change_centroid_err": 0.166,
-      "region_pred": 11,
+      "change_TP": 3,
+      "change_precision": 0.6,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.165,
+      "region_pred": 7,
       "region_gt": 4,
       "region_TP": 4,
-      "region_precision": 0.364,
+      "region_precision": 0.571,
       "region_recall": 1.0,
-      "region_centroid_err": 0.146,
+      "region_centroid_err": 0.124,
       "matches": [
         {
-          "pred": 5,
+          "pred": 2,
           "gt": 2,
-          "dist": 0.128
+          "dist": 0.079
+        },
+        {
+          "pred": 4,
+          "gt": 1,
+          "dist": 0.145
         },
         {
           "pred": 0,
           "gt": 0,
-          "dist": 0.205
+          "dist": 0.272
         }
       ]
     }
