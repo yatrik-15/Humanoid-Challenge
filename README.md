@@ -23,6 +23,8 @@ was added (green). Left: before. Right: after. Both videos fused into one 3-D fr
 
 **See it in 3-D in your browser, nothing to install:** [hero](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd) · [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (opens BEFORE and AFTER side by side, with the report). **Run it:** `python run.py --video_a before.mp4 --video_b after.mp4 --out out/room` ([Quick start](#quick-start)).
 
+<sub>If the viewer reports that WebGL2 is not available, turn on hardware acceleration in the browser (or open it outside an in-app browser), or try the [WebGPU renderer](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd&renderer=webgpu); the GIFs and images on this page show the same results.</sub>
+
 ## Highlights
 
 - **Unknown is never a change.** Both recordings are fused in 3-D and rendered from every
