@@ -3,6 +3,12 @@
 The clicked centres are triangulated from the SfM camera poses (align/poses.json) alone;
 the change detector's output is never read, so the labels stay independent of it.
 
+When the clicked views are too close together (viewing rays less than --min_angle_deg
+apart, e.g. a recording made from nearly one spot), triangulation cannot fix the distance
+along the rays. The point is then taken where each click ray first meets the recording's
+own fused surface (fusion/grid_<epoch>.npz, the epoch the object is clicked in) and the
+median of those hits is saved. The entry records which method was used.
+
 Interactive (opens a window; keys: n/p = next/previous frame, click = mark centre,
 u = undo last click on this frame, enter = triangulate and save, q = quit):
     python eval/annotate.py --out out/change --scene change --action removed --label keyboard --epoch A
@@ -59,6 +65,36 @@ def reprojection_errors(X: np.ndarray, Ks, T_cws, uvs) -> list[float]:
     return errs
 
 
+def ray_angle_deg(X: np.ndarray, T_cws: list[np.ndarray]) -> float:
+    """Largest angle between the rays from the cameras to X (triangulation baseline)."""
+    from src.utils.geometry import camera_center
+
+    d = [(X - camera_center(T)) / np.linalg.norm(X - camera_center(T)) for T in T_cws]
+    return max(float(np.degrees(np.arccos(np.clip(a @ b, -1, 1)))) for a in d for b in d)
+
+
+def surface_hits(out: Path, epoch: str, Ks, T_cws, uvs) -> np.ndarray:
+    """Where each click ray first meets the fused surface of `epoch` (rows of NaN = no hit)."""
+    import open3d as o3d
+    import open3d.core as o3c
+    import yaml
+
+    from src.fusion import DepthRenderer
+    from src.utils.geometry import invert_pose
+
+    cfg = yaml.safe_load((REPO / "config.yaml").read_text(encoding="utf-8"))["fusion"]
+    grid = o3d.t.geometry.VoxelBlockGrid.load(str(out / "fusion" / f"grid_{epoch}.npz"))
+    scene = DepthRenderer(grid, cfg).scene
+    hits = []
+    for K, T, uv in zip(Ks, T_cws, uvs):
+        T_wc = invert_pose(T)
+        d = T_wc[:3, :3] @ (np.linalg.inv(K) @ np.array([uv[0], uv[1], 1.0]))
+        o = T_wc[:3, 3]
+        t = scene.cast_rays(o3c.Tensor(np.r_[o, d][None].astype(np.float32)))["t_hit"].numpy()[0]
+        hits.append(o + t * d if np.isfinite(t) else np.full(3, np.nan))
+    return np.array(hits)
+
+
 def save_entry(
     gt_path: Path,
     scene: str,
@@ -68,6 +104,7 @@ def save_entry(
     X: np.ndarray,
     clicks: dict[str, tuple[float, float]],
     errs: list[float],
+    method: str = "triangulated",
 ) -> dict:
     """Add/merge one change into eval/gt/<scene>.json (format of eval/run_eval.py)."""
     gt = (
@@ -75,7 +112,11 @@ def save_entry(
         if gt_path.exists()
         else {"scene": scene, "frame": "pipeline", "changes": []}
     )
-    src = {"clicks": {k: list(v) for k, v in clicks.items()}, "reproj_err_px": [round(e, 2) for e in errs]}
+    src = {
+        "clicks": {k: list(v) for k, v in clicks.items()},
+        "reproj_err_px": [round(e, 2) for e in errs],
+        "method": method,
+    }
     xyz = np.round(X, 4).tolist()
     if action == "moved":
         entry = next((c for c in gt["changes"] if c["action"] == "moved" and c["label"] == label), None)
@@ -159,6 +200,12 @@ def main() -> None:
     ap.add_argument("--part", choices=["before", "after"], help="for --action moved")
     ap.add_argument("--clicks", nargs="*", help="non-interactive: FRAME:u,v (pixel column,row)")
     ap.add_argument(
+        "--min_angle_deg",
+        type=float,
+        default=5.0,
+        help="below this triangulation angle use the fused surface hit instead (see module doc)",
+    )
+    ap.add_argument(
         "--max_reproj_px",
         type=float,
         default=15.0,
@@ -195,6 +242,22 @@ def main() -> None:
         print(f"  {n}: reprojection error {e:.1f} px")
     if max(errs) > args.max_reproj_px:
         sys.exit(f"clicks are inconsistent (max error {max(errs):.1f} px > {args.max_reproj_px}); not saved")
+    method = "triangulated"
+    angle = ray_angle_deg(X, Ts)
+    if angle < args.min_angle_deg:
+        hits = surface_hits(out, args.epoch, Ks, Ts, uvs)
+        ok = hits[np.all(np.isfinite(hits), axis=1)]
+        if len(ok) == 0:
+            sys.exit(f"rays only {angle:.1f} deg apart and no click ray hits the fused surface; not saved")
+        X = np.median(ok, axis=0)
+        spread = float(np.max(np.linalg.norm(ok - X, axis=1)))
+        method = "surface"
+        print(
+            f"  rays only {angle:.1f} deg apart: using the fused surface ({len(ok)}/{len(hits)} hits, "
+            f"max {spread:.2f} m from their median)"
+        )
+    else:
+        print(f"  triangulated (rays up to {angle:.1f} deg apart)")
     entry = save_entry(
         REPO / "eval" / "gt" / f"{args.scene}.json",
         args.scene,
@@ -204,6 +267,7 @@ def main() -> None:
         X,
         clicks,
         errs,
+        method,
     )
     print(f"  saved: {json.dumps({k: v for k, v in entry.items() if not k.startswith('annotation')})}")
 
