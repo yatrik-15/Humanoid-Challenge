@@ -1,0 +1,52 @@
+{
+  "scene": "stool",
+  "out_dir": "out\\ex_stool",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "pipeline"
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 1,
+      "num_gt": 1,
+      "change_TP": 1,
+      "change_precision": 1.0,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.223,
+      "region_pred": 1,
+      "region_gt": 1,
+      "region_TP": 1,
+      "region_precision": 1.0,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.223,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.223
+        }
+      ]
+    },
+    "naive NN baseline": {
+      "num_pred": 7,
+      "num_gt": 1,
+      "change_TP": 1,
+      "change_precision": 0.143,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.288,
+      "region_pred": 7,
+      "region_gt": 1,
+      "region_TP": 1,
+      "region_precision": 0.143,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.288,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.288
+        }
+      ]
+    }
+  }
+}

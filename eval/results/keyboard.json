@@ -1,0 +1,40 @@
+{
+  "scene": "keyboard",
+  "out_dir": "out\\change",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "pipeline"
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 0,
+      "num_gt": 1,
+      "change_TP": 0,
+      "change_precision": null,
+      "change_recall": 0.0,
+      "change_centroid_err": null,
+      "region_pred": 0,
+      "region_gt": 1,
+      "region_TP": 0,
+      "region_precision": null,
+      "region_recall": 0.0,
+      "region_centroid_err": null,
+      "matches": []
+    },
+    "naive NN baseline": {
+      "num_pred": 0,
+      "num_gt": 1,
+      "change_TP": 0,
+      "change_precision": null,
+      "change_recall": 0.0,
+      "change_centroid_err": null,
+      "region_pred": 0,
+      "region_gt": 1,
+      "region_TP": 0,
+      "region_precision": null,
+      "region_recall": 0.0,
+      "region_centroid_err": null,
+      "matches": []
+    }
+  }
+}

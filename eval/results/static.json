@@ -1,0 +1,40 @@
+{
+  "scene": "static",
+  "out_dir": "out\\static",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "pipeline"
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 0,
+      "num_gt": 0,
+      "change_TP": 0,
+      "change_precision": null,
+      "change_recall": null,
+      "change_centroid_err": null,
+      "region_pred": 0,
+      "region_gt": 0,
+      "region_TP": 0,
+      "region_precision": null,
+      "region_recall": null,
+      "region_centroid_err": null,
+      "matches": []
+    },
+    "naive NN baseline": {
+      "num_pred": 1,
+      "num_gt": 0,
+      "change_TP": 0,
+      "change_precision": 0.0,
+      "change_recall": null,
+      "change_centroid_err": null,
+      "region_pred": 1,
+      "region_gt": 0,
+      "region_TP": 0,
+      "region_precision": 0.0,
+      "region_recall": null,
+      "region_centroid_err": null,
+      "matches": []
+    }
+  }
+}

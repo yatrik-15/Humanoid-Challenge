@@ -826,3 +826,120 @@ from several sides), more floor in view, and a shoebox standing upright instead 
   log and at the top of report.md, when it is under `alignment.min_camera_path_m` (1 m).
   On the first hero recording (0.41 / 0.42 m) it fires; the walkway (3.1 / 2.2 m) does not.
   Test. `pytest` -> 60 passed.
+
+## Hero pair, second recording, and hand-labelled evaluation (2026-10-15)
+
+Recorded again in daylight, walking past the bed: backpack moved from the floor onto the bed,
+a stool added on the floor, a Nike shoebox (lying flat, ~12 cm tall) removed from the bed;
+bottle, yellow toy and red cloth unchanged. Shipped re-encoded (10 fps) in
+`examples/hero/input/` and run from exactly those files (`out/ex_hero`).
+
+- Pre-check on every 4th frame (frames, sfm, align; 343 s): 32/32 registered, floor found
+  (3.1 %), camera 1.46 m above it. Full run: 133/133 registered (69 + 64), 1.11 px; floor
+  found (2.5 %, 13.2 deg from camera-up), scale 0.1068 m/unit (IQR/median 0.177), depth fits
+  133/133 (median residual 0.014 / 0.018), 17 view groups (5 on the first recording).
+- **A misregistered frame.** The backpack label reprojects onto the bag in A_0038-A_0043 and
+  A_0045 (u = 895, 941, 972, 1006, 1040, 1159) but at u = 529 in A_0044: its camera centre is
+  0.61 m from the midpoint of its neighbours, which are 0.06 m apart (other real frames: at
+  most 0.02 m). New `pose_outliers` in alignment drops a frame more than
+  `outlier_min_jump_m` (0.15) from its neighbours' midpoint and more than
+  `outlier_span_factor` (2) times their distance. Across all eleven runs it flags only
+  A_0044; the next most unusual frame is at 0.26 of the threshold. Camera path lengths are now
+  measured after dropping (A's jump out and back had added 1.2 m: 2.57 -> 1.41 m). Test.
+- **A bridged cluster.** After dropping A_0044 the added stool came out 1.92 m long: a
+  two-voxel-thin strip of evidence along the bed's outline joined it to the bed (projected
+  into A and B frames to check). New `cluster.min_neighbors` (8 within `neighbor_radius`
+  0.05 m) drops such voxels before DBSCAN. Sweep over all pairs: 6 -> stool 0.75 m, others
+  unchanged; 7 -> stool 0.50 m, walkway +1 small false cluster; **8 -> stool 0.49 m, walkway
+  -1 false (vase removed), others unchanged**; 9 or 10 -> the bottle (smallest object) and the
+  stool pair's detection are lost. Chosen on these recordings; the margin is 1. Test with a
+  two-voxel strip bridging two patches.
+- **Move pairing.** The backpack's removed and added clusters had a box-volume ratio of 2.03
+  against `moved.max_volume_ratio` 2.0 (extent ratio 1.32, 1.66 m apart): the evidence covers
+  only the sides each recording saw. Raised to 3.0; re-clustering every pair changed only the
+  hero result (the backpack becomes one move).
+- Floor snapping was ruled out as the cause of low heights: fused without it (on a copy), the
+  bed sheet measures 0.24 m median instead of 0.20 (the user's bed is ~45 cm). Heights on
+  this pair are unreliable; positions on the floor plan agree with hand labels to ~10 cm.
+- Final hero result: backpack moved 1.66 m (labels: 1.70 m), stool added 0.49 x 0.47 x 0.37 m,
+  shoebox missed; false: two removals at the doorway into the next room (dining chairs and
+  floor, ~3.5 m away), one on the unchanged yellow toy. Route check: A's route 1.33 m, nothing
+  blocked (the stool stands beside it).
+
+### Ground truth and scores
+
+`eval/annotate.py` labels: bottle, stool, keyboard, walkway (bag and ball moved, bottle
+added), hero (backpack moved, stool added, shoebox removed); `eval/gt/static.json` is empty.
+Several clicks came from frames only a few cm apart (stool pair: rays 1.9 deg apart; the
+triangulated stool label slid 1.1 m along the rays although its clicks agreed to 2-9 px).
+The tool now falls back, below `--min_angle_deg` 5, to the median point where the click
+rays meet the recording's fused surface and records the method (surface hits agreed to
+0.01-0.05 m). Labels: 7 triangulated, 5 from the surface. Big objects need the same physical
+point clicked in each frame (the first walkway bag attempt was refused at 19.6 px).
+
+Change-level scores (action must match, centroid within 0.3 m):
+
+| pair | real | ours reported / correct | baseline reported / correct |
+|---|---|---|---|
+| hero | 3 | 5 / 2 | 12 / 0 |
+| bottle | 1 | 1 / 1 | 3 / 1 |
+| stool | 1 | 1 / 1 | 7 / 1 |
+| walkway | 3 | 4 / 1 | 10 / 2 |
+| keyboard | 1 | 0 / 0 | 0 / 0 |
+| static | 0 | 0 | 1 |
+| total | 9 | 11 / 5 (P 0.45, R 0.56) | 33 / 4 (P 0.12, R 0.44) |
+
+Synthetic room after these changes: ours 3/3 (P 1.00, R 1.00), baseline 13 predictions
+(P 0.23). The walkway ball's old spot is found as "removed", which does not count as the
+"moved" ball; the baseline's fragments happen to land within 0.3 m of both ball positions.
+`pytest` -> 63 passed.
+
+## Hero pair, final recording (2026-10-15, later)
+
+The second recording was replaced to fix three things it showed: the shoebox lay flat (its
+evidence, mostly the top face, was rejected as flat at planarity 0.11; a cut low enough to
+keep it brought back 2 false clusters on the walkway and, at 0.10, paired it with the stool
+into a false move), the open door showed the next room (2 false removals), and the
+backpack on the bed leaned against the wall (seen from the front only, rejected as flat).
+
+- Recording 3 (door closed, orange shoebox standing, backpack against the wall again): 127/127
+  registered, camera paths 1.34 / 1.30 m. Backpack old spot and shoebox found; the stool was
+  paired with a false removal 0.7 m *below* the floor at the door (a reflection in the
+  glossy tiles) into a "stool moved"; the backpack's new spot (151 voxels, 9 view groups)
+  was rejected as a sheet (planarity 0.08, front face only); a thin strip on the wall was
+  reported as added.
+- New `cluster.max_below_floor` (0.15): when a floor was found, clusters lying entirely
+  further below it are dropped before move pairing. Across ten runs it removes exactly two
+  clusters, the door reflection here and the doorway "desk" of the previous hero recording
+  (z = -0.39), and no real change. Test.
+- Tried and removed: ignoring evidence more than a set distance from every camera. At 3.0-3.5 m
+  it removed the two doorway false removals of the previous recording and nothing else
+  (2.5 m lost the stool pair's stool, 2.81 m from the nearest camera); with the door closed
+  in the final recording it had nothing to do, so the option was dropped rather than shipped
+  unused.
+- Recording 4 (only B again: backpack upright in the open middle of the bed): 128/128
+  registered (68 + 60), 1.11 px, camera paths 1.33 / 1.27 m, no frame dropped, floor plane
+  found (2.9 %) but 1.04 m below the cameras (likely the bed top), so no floor snapping or
+  route check. Result: **backpack moved 1.20 m, stool added, nothing else.** Hand labels:
+  backpack 6 cm (before) and 14 cm (after) from the detections, stool 17 cm.
+- The shoebox: the hand labels put it 4 cm from the backpack's new position. The backpack was
+  put down where the box had stood, so that space is occupied in both recordings; only a
+  sliver of the box (120 voxels, 0.07 x 0.25 x 0.32 m) remains as removal evidence and it is
+  rejected as a sheet. A replacement in place is not separable by geometry alone.
+- Annotation note: the first "backpack after" clicks landed on the stool's leg (frames
+  B_0001-B_0016 show the stool, not the bag); redone on B_0022-B_0052.
+
+Scores with the final hero pair (change level, centroid within 0.3 m):
+
+| pair | real | ours reported / correct | baseline reported / correct |
+|---|---|---|---|
+| hero | 3 | 2 / 2 | 9 / 2 |
+| bottle | 1 | 1 / 1 | 3 / 1 |
+| stool | 1 | 1 / 1 | 7 / 1 |
+| walkway | 3 | 4 / 1 | 10 / 2 |
+| keyboard | 1 | 0 / 0 | 0 / 0 |
+| static | 0 | 0 | 1 |
+| total | 9 | 8 / 5 (P 0.63, R 0.56) | 30 / 6 (P 0.20, R 0.67) |
+
+The baseline's extra correct change is on the walkway (fragments near both ball positions).
+`pytest` -> 64 passed.

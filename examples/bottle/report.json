@@ -12,100 +12,102 @@
     {
       "id": 0,
       "action": "added",
-      "label": "water bottle",
+      "label": "bottle",
       "label_confidence": 0.8,
-      "description": "Water bottle added: An object was added (present only in the after recording). Region: centre at x=-0.18, y=1.99 m (approx.); size about 0.05 x 0.04 x 0.20 m (approx.) (top 0.29 m (approx.) above the z=0 plane).",
-      "spatial_summary": "The water bottle is on the bed, near the headboard.",
+      "description": "Bottle added: An object was added (present only in the after recording). Region: centre at x=-0.18, y=1.99 m (approx.); size about 0.05 x 0.04 x 0.17 m (approx.) (top 0.26 m (approx.) above the z=0 plane).",
+      "spatial_summary": "The bottle is on the floor, near the empty space.",
       "label_check": null,
       "supporting_view_groups": 4,
-      "num_evidence_voxels": 28,
+      "num_evidence_voxels": 22,
       "box": {
         "center": [
-          -0.1809,
-          1.989,
-          0.1874
+          -0.1808,
+          1.9878,
+          0.1717
         ],
         "extents": [
-          0.05,
-          0.0406,
-          0.2037
+          0.0493,
+          0.0392,
+          0.1723
         ],
-        "yaw_rad": 0.8112,
+        "yaw_rad": -2.3995,
         "corners": [
           [
-            -0.1835,
-            1.9569,
+            -0.1758,
+            2.0189,
             0.0856
           ],
           [
-            -0.1835,
-            1.9569,
-            0.2893
+            -0.1758,
+            2.0189,
+            0.2579
           ],
           [
-            -0.2129,
-            1.9849,
+            -0.1493,
+            1.9901,
             0.0856
           ],
           [
-            -0.2129,
-            1.9849,
-            0.2893
+            -0.1493,
+            1.9901,
+            0.2579
           ],
           [
-            -0.149,
-            1.9932,
+            -0.2122,
+            1.9856,
             0.0856
           ],
           [
-            -0.149,
-            1.9932,
-            0.2893
+            -0.2122,
+            1.9856,
+            0.2579
           ],
           [
-            -0.1784,
-            2.0212,
+            -0.1857,
+            1.9567,
             0.0856
           ],
           [
-            -0.1784,
-            2.0212,
-            0.2893
+            -0.1857,
+            1.9567,
+            0.2579
           ]
         ]
       },
       "centroid": [
-        -0.1809,
-        1.989,
-        0.1874
+        -0.1808,
+        1.9878,
+        0.1717
       ],
       "views": [
         {
           "epoch": "A",
           "frame": "A_0022.jpg",
           "box_px": [
-            11,
-            1142,
-            76,
+            14,
+            1163,
+            75,
             1302
           ],
-          "score": 10400.0,
+          "score": 8479.0,
           "crop": "semantics\\crops\\change00_A.jpg"
         },
         {
           "epoch": "B",
           "frame": "B_0029.jpg",
           "box_px": [
-            17,
-            1088,
+            19,
+            1110,
             77,
-            1248
+            1249
           ],
-          "score": 9600.0,
+          "score": 8062.0,
           "crop": "semantics\\crops\\change00_B.jpg"
         }
       ]
     }
   ],
-  "navigation": null
+  "navigation": null,
+  "camera_path_length": null,
+  "camera_path_short": []
 }

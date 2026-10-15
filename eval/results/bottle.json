@@ -1,0 +1,52 @@
+{
+  "scene": "bottle",
+  "out_dir": "out\\ex_bottle",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "pipeline"
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 1,
+      "num_gt": 1,
+      "change_TP": 1,
+      "change_precision": 1.0,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.039,
+      "region_pred": 1,
+      "region_gt": 1,
+      "region_TP": 1,
+      "region_precision": 1.0,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.039,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.039
+        }
+      ]
+    },
+    "naive NN baseline": {
+      "num_pred": 3,
+      "num_gt": 1,
+      "change_TP": 1,
+      "change_precision": 0.333,
+      "change_recall": 1.0,
+      "change_centroid_err": 0.035,
+      "region_pred": 3,
+      "region_gt": 1,
+      "region_TP": 1,
+      "region_precision": 0.333,
+      "region_recall": 1.0,
+      "region_centroid_err": 0.035,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.035
+        }
+      ]
+    }
+  }
+}

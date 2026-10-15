@@ -8,20 +8,23 @@ they are. Differences that only come from a different viewpoint, occlusion or in
 coverage are kept as **unknown** rather than reported as changes, and the result is checked
 against the path a robot would walk: if a change now blocks it, a new route is planned.
 
-![fused 3-D scene before and after, with the detected change](examples/bottle/scene_3d.gif)
+![fused 3-D scene before and after, with the detected changes](examples/hero/scene_3d.gif)
 
-*Bottle pair: both recordings fused into one 3-D frame and rendered from the same virtual
-camera. Left: before. Right: after, with the surface of the added bottle tinted green. The full report is
-[`examples/bottle/report.md`](examples/bottle/report.md).*
+*Hero pair: both recordings fused into one 3-D frame and rendered from the same virtual
+camera, left before, right after. The backpack moved from the floor onto the bed (orange,
+1.20 m) and a stool was added (green); nothing else is reported. The orange shoebox standing
+on the bed in the before view was removed, but the backpack was put down in its place (the
+two hand labels are 4 cm apart), so that spot is occupied in both recordings and the removal
+is not detected. Full report: [`examples/hero`](examples/hero).*
 
-**Explore the results in 3-D in your browser, nothing to install:** [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
+**Explore the results in 3-D in your browser, nothing to install:** [hero](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/hero/changes.rrd) · [bottle](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/bottle/changes.rrd) · [stool](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/stool/changes.rrd) · [walkway](https://app.rerun.io/version/0.39.0/?url=https://raw.githubusercontent.com/yatrik-15/Humanoid-Challenge/main/examples/walkway/changes.rrd) (Rerun web viewer). It opens on BEFORE and AFTER side by side: the reconstructed room surfaces, both camera paths and the change boxes, with the report alongside. Each file is under 2 MB (surfaces simplified to 40 k triangles per recording); set `viz.rerun_extras: true` to also include every camera frustum, the raw points and the unknown regions.
 
 ## Highlights
 
 - **Unknown is never a change.** Both recordings are fused in 3-D and rendered from every
   camera pose of both; a difference only counts where the other recording actually saw
-  empty space. An unchanged room filmed along a different path gives 0 changes; on the
-  walkway pair the same pipeline without this check reports 12 clusters, with it 5.
+  empty space. On the six real pairs the same pipeline without this check reports 30
+  changes, 6 of them real; with it, 8, 5 of them real. An unchanged room gives 0.
 - **One 3-D frame by construction.** Both videos go into a single structure-from-motion
   run, so there is no registration step between two separate reconstructions to fail.
   Gravity comes from the floor plane, metric scale from a metric depth model.
@@ -31,55 +34,76 @@ camera. Left: before. Right: after, with the surface of the added bottle tinted 
 - **Built for a robot, not just a picture.** The route walked in the first video is replayed
   on the changed room; if a change blocks it, the blocker is named and a new route is planned
   through space that was actually observed. Both rooms are exported as standard ROS maps.
-- **Measured, including what fails.** A baseline without the visibility check runs on every
-  pair; a synthetic room with exact ground truth gives precision and recall 1.00 (baseline
-  precision 0.27); missed objects and false positives are listed with their causes.
+- **Measured against hand labels, including what fails.** Every real change was labelled by
+  clicking it in the video frames ([Evaluation](#evaluation)); precision and recall are
+  reported per pair for the method and the baseline, and every miss and false positive is
+  explained below.
 
 ## Results on real recordings
 
-Six pairs of handheld phone videos (about 30 s each), plus a synthetic room with exact
+Seven pairs of handheld phone videos (30-65 s each), plus a synthetic room with exact
 ground truth. "Baseline" flags every fused point with no neighbour within 5 cm in the other
-recording and clusters it with the same code, i.e. the method without visibility reasoning.
+recording and clusters it with the same code and filters, i.e. the method without
+visibility reasoning.
 
 | pair | what changed | ours | baseline | notes |
 |---|---|---|---|---|
-| [bottle](examples/bottle) | bottle put on a pillow | **1 added** ✅ "water bottle", 5 × 4 × 20 cm | 2 (1 false) | |
-| [static](examples/static) | nothing (different camera path) | **0** ✅ | 0 | negative control |
-| [stool](examples/stool) | stool removed | **stool removed** ✅ "footstool", 0.5 × 0.6 × 0.5 m | 4 (stool split in 2, 2 false) | run with `--known_focal_rel 1.64` |
-| [walkway](examples/walkway) | bag moved, ball moved, bottle added | **bag moved 1.13 m** ✅, ball's old spot ✅ (as removed); 3 false | 12 (5 on real changes, in pieces) | false ones: the static vase (as removed and as added) and a window frame, at a dark window at night; the ball's new spot and the bottle (a spot A never saw) are not found |
-| [keyboard](examples/keyboard) | keyboard taken off the bed | 0 ❌ missed | 0 | 2–3 cm tall: below depth resolution |
+| [hero](examples/hero) | backpack moved floor → bed, stool added, shoebox removed | **backpack moved 1.20 m** ✅, **stool added** ✅ 0.6 × 0.4 × 0.4 m; shoebox ❌; 0 false | 9 (2 on real changes) | the backpack was put where the shoebox stood (labels 4 cm apart), so the removal is hidden; door closed, see Limitations for the earlier recordings |
+| [bottle](examples/bottle) | bottle put on a pillow | **1 added** ✅ "water bottle", 5 × 4 × 20 cm | 3 (2 false) | |
+| [static](examples/static) | nothing (different camera path) | **0** ✅ | 1 (false) | negative control |
+| [stool](examples/stool) | stool removed | **stool removed** ✅ "footstool", 0.5 × 0.6 × 0.5 m | 7 (1 on the stool) | run with `--known_focal_rel 1.64` |
+| [walkway](examples/walkway) | bag moved, ball moved, bottle added | **bag moved 1.08 m** ✅, ball's old spot found (as removed); 2 false | 10 (2 on real changes) | false ones: a static vase and a window frame at a black night-time window; the ball's new spot and the bottle (a spot A never saw) are not found |
+| [keyboard](examples/keyboard) | keyboard taken off the bed | 0 ❌ missed | 0 | 2-3 cm tall: below depth resolution |
 | ball | ball on a glossy tiled floor | – | – | reconstruction failed (reflections, TV screen) |
 
-Every number above comes from `examples/<pair>/report.json` and the run logs; how each was
-measured, and what was tried and dropped, is in [DEVLOG.md](DEVLOG.md).
+**Scored against hand labels** (`eval/run_eval.py`; a change counts when the action matches
+and its centre lies within 0.3 m of the labelled point; per-pair tables in
+[`eval/results/`](eval/results)):
+
+| pair | real changes | ours: reported / correct | baseline: reported / correct |
+|---|---|---|---|
+| hero | 3 | 2 / **2** | 9 / 2 |
+| bottle | 1 | 1 / **1** | 3 / 1 |
+| stool | 1 | 1 / **1** | 7 / 1 |
+| walkway | 3 | 4 / 1 | 10 / **2** |
+| keyboard | 1 | 0 / 0 | 0 / 0 |
+| static | 0 | **0** / – | 1 / – |
+| **all six** | **9** | **8 / 5: precision 0.63, recall 0.56** | 30 / 6: precision 0.20, recall 0.67 |
+
+The baseline finds one more real change in total, on the walkway: its many fragments land
+near both positions of the moved ball, while the method finds the ball's old spot but calls
+it "removed" (its new spot was never confirmed), which this strict scoring counts as a
+miss. It pays for that recall with 24 false reports against the method's 3.
+Every number above comes from `examples/<pair>/report.json`, `eval/results/` and the run
+logs; how each was measured, and what was tried and dropped, is in [DEVLOG.md](DEVLOG.md).
 
 What this shows:
 
+- **All three kinds of change are found on real data**, including in one recording: in the
+  hero pair the backpack's old and new positions are linked into one move, and the added
+  stool is boxed at its own size.
+
+  ![hero pair: the moved backpack before and after](examples/hero/side_by_side.jpg)
+
 - **Viewpoint changes are not reported as changes.** On the unchanged room the method
   reports nothing. In the static pair B also filmed a doorway that A never saw (right
-  edge), and it stays unknown, not "added". Where the recordings overlap less, the
-  visibility check is what keeps the count down: on the walkway pair the baseline (same
-  clustering and filters, no visibility reasoning) reports 12 clusters, the method 5.
+  edge), and it stays unknown, not "added":
 
   ![unchanged room: nothing reported](examples/static/scene_3d.png)
 
-- **All three kinds of change are found on real data**: an added bottle, a removed stool and
-  a moved bag.
-
-  | stool removed | bag moved |
-  |---|---|
-  | ![](examples/stool/side_by_side.jpg) | ![](examples/walkway/side_by_side.jpg) |
-
-- **What fails, and why.** A keyboard lying flat is 2–3 cm tall while the change threshold is
+- **What fails, and why.** A keyboard lying flat is 2-3 cm tall while the change threshold is
   about 7.5 cm at the 1.5 m filming distance (5 % of depth, set by monocular depth noise);
   lowering it down to 1.5 % never produced a keyboard cluster, added false positives on the
-  static pair and lost the bottle. Blank walls and a dark window at night caused most false
-  positives: monocular depth places textureless surfaces slightly differently from each
-  viewpoint. That evidence is a flat patch, while an object leaves a 3-D shell (front,
-  sides, top); rejecting flat clusters removed 8 such false positives across the runs and
-  no real change. The remaining false ones on the walkway pair are a static vase and a
-  window frame at a black night-time window. Glossy floors with moving reflections break
-  reconstruction altogether.
+  static pair and lost the bottle. An object removed and another put down in exactly its
+  place (the hero shoebox and backpack) leaves that space occupied in both recordings, so
+  only a thin sliver of the box remains as evidence and it is rejected as flat. Most false
+  positives come from places where monocular depth is weakest: blank walls, a black
+  night-time window, reflections in a glossy floor (rejected when they lie below the floor)
+  and, in an earlier hero recording, the next room seen through an open door 3.5 m away.
+  Evidence on a blank wall is a flat patch, while an object leaves a 3-D shell
+  (front, sides, top); rejecting flat clusters removed 8 such false positives across the
+  runs and no real change. Glossy floors with moving reflections break reconstruction
+  altogether.
 
 ### For a robot: is my route still free?
 
@@ -91,18 +115,18 @@ by the person filming): unobserved space is never assumed free, for the same rea
 is never a change. This is tested on a synthetic corridor with an added box: the blockage
 is blamed on the box, and the new route goes around it, never through unobserved space.
 
-On the walkway pair the check runs but says little: the corridor between the bed and the
-wardrobe reconstructs narrower than a 0.5 m wide robot, so most of the route is already
-blocked in A's own map, and the few remaining cells decide the result (an earlier run of the
-same pair blamed the bag; the shipped run does not). The top-down map shows why: white is
-floor seen empty or walked, grey is an obstacle now, hatched was never observed, and the
-corridor between the bed and the wardrobe is barely wider than the walked line. It also
-shows the bag's move across the walkway and both camera paths:
+On the real pairs the check ran on the walkway, where the floor is in view at a plausible
+camera height. There the corridor between the bed and the wardrobe reconstructs narrower
+than a 0.5 m wide robot, so most of the route is already blocked in A's own map and the
+result says little. In the final hero recording the plane found lies 1.0 m below the
+cameras, most likely the bed top, so the check is skipped rather than run on the wrong
+surface. The top-down map still shows what is known (white: seen empty or walked, grey:
+obstacle now, hatched: never observed) and the changes:
 
-<img src="examples/walkway/floor_map.png" width="560" alt="top-down map: seen floor, obstacles, never-observed area, the bag moved across the walkway">
+<img src="examples/hero/floor_map.png" width="560" alt="top-down map of the hero pair: seen surfaces, obstacles, never-observed area, the backpack's move and the added stool">
 
-The check only runs when the floor is in view and the camera height above it is plausible
-(1.1–1.9 m); in the bedroom pairs the reference plane is the mattress, so it is skipped.
+The check is skipped when the floor is not in view or the camera height above it is
+implausible (outside 1.1-1.9 m); in the bedroom pairs the reference plane is the mattress.
 
 The occupancy grids behind it are also written as standard ROS `map_server` maps
 (`nav/map_A.pgm/.yaml` before, `nav/map_B.pgm/.yaml` after; 5 cm cells, occupied / free /
@@ -116,8 +140,8 @@ a 2-D navigation stack such as Nav2: [`examples/walkway/nav/`](examples/walkway/
 
 | method | predictions | true positives (of 3) | precision | recall | centroid error |
 |---|---|---|---|---|---|
-| ours | 3 | 3 | 1.00 | 1.00 | 0.083 |
-| baseline | 11 | 3 | 0.27 | 1.00 | 0.085 |
+| ours | 3 | 3 | 1.00 | 1.00 | 0.10 |
+| baseline | 13 | 3 | 0.23 | 1.00 | 0.11 |
 
 Camera poses are recovered to 1.4 mm (mean, after a similarity fit to the true poses).
 
@@ -129,13 +153,13 @@ Install (below), then run on a bundled pair:
 python run.py --video_a examples/bottle/input/A.mp4 --video_b examples/bottle/input/B.mp4 --out out/bottle
 ```
 
-30-45 minutes on a laptop RTX 4050 (measured: stool 43 min, walkway 33 min), mostly feature
+30-45 minutes on a laptop RTX 4050 (measured: stool 43 min, walkway 33 min, hero 28 min), mostly feature
 matching between every pair of frames. `sfm.match_pairs: windowed` matches each frame with
 its 10 neighbours in the same video and with a third of the other video's frames: about 2x
 faster (bottle 15 min), same bottle detection, but on the stool pair the metric scale came
 out 17 % different, so it is an option, not the default. Results land in
-`out/bottle/`; the copies in `examples/bottle/` came from exactly this command. The stool pair
-needs `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally with
+`out/bottle/`; the copies in `examples/bottle/` came from exactly this command. The stool and
+hero pairs were run with `--known_focal_rel 1.64` (see Design choices). Open the 3-D scene locally with
 `rerun examples/bottle/changes.rrd`, or with the browser links at the top.
 
 | output | contents |
@@ -165,10 +189,12 @@ flowchart LR
    structure-from-motion run (DISK features, LightGlue matching, pycolmap mapping), so A and
    B share a frame without any ICP between separate reconstructions. On the real pairs, 93 %
    or more of the 3-D points are observed from both videos.
-2. **Gravity and scale.** RANSAC finds the dominant horizontal plane (the floor, or the bed
-   when the floor is out of view) and makes it z = 0. Up comes from the camera x-axes, which
+2. **Gravity, scale and pose check.** RANSAC finds the dominant horizontal plane (the floor,
+   or the bed when the floor is out of view) and makes it z = 0. Up comes from the camera x-axes, which
    stay level on a handheld phone even when it is pitched down. Metric scale is the median
    ratio between a metric depth model and SfM depth over many frames, so it is approximate.
+   A frame whose camera position jumps away from both neighbours (registered in the wrong
+   place) is dropped, and a recording whose camera moved less than 1 m triggers a warning.
 3. **Dense geometry per recording.** Depth Anything V2 depth is fitted to each frame's own SfM
    points with RANSAC and fused into one TSDF grid per recording. Rays also mark the empty
    space in front of every surface as observed.
@@ -176,10 +202,12 @@ flowchart LR
    B. Where B's surface is in front of A's, that is evidence for *added*; behind it, for
    *removed*. Evidence only counts if the other recording saw that spot as empty space;
    otherwise it is *unknown*. A voxel needs confirmation from three distinct viewpoints.
-5. **Objects.** Evidence is clustered with DBSCAN. Flat clusters lying on a static surface,
+5. **Objects.** Evidence voxels with few neighbours (thin lines along object outlines, where
+   depth is least reliable) are dropped, then the rest is clustered with DBSCAN. Flat clusters lying on a static surface,
    which is how depth error between the recordings shows up, are rejected: an object's
    evidence is the 3-D shell the cameras saw, a depth error on a wall is a flat patch
-   (smallest / middle principal variance below 0.15). A removed and an
+   (smallest / middle principal variance below 0.15), and so are clusters lying entirely
+   below the floor (reflections in a glossy floor). A removed and an
    added cluster with similar size and colours become one move with a displacement.
 6. **Route check** (above).
 7. **Labels.** The best unoccluded before/after views are cropped and sent to Qwen2-VL-2B,
@@ -204,6 +232,25 @@ flowchart LR
 - **Mesh ray casting instead of `VoxelBlockGrid.ray_cast`.** With open3d 0.20 on Windows,
   `ray_cast` hung for some settings and returned different hits on repeated calls for
   others. The grid's zero-level mesh is rendered with `RaycastingScene` instead.
+- **Drop frames registered in the wrong place.** One frame of an earlier hero recording sat 61 cm off
+  the smooth path of its neighbours (they were 6 cm apart); its depth would be fused into
+  the wrong part of the room. A frame further than 0.15 m from its neighbours' midpoint and
+  more than twice their distance is dropped; across all eleven runs this flags only that
+  frame, and the next most unusual frame is at a quarter of the threshold.
+- **Nothing stands under the floor.** The floor plane is chosen so that almost no point lies
+  below it, but a glossy floor mirrors the room and depth on those reflections lands
+  beneath it. A cluster lying entirely more than 15 cm below the floor is dropped; across
+  ten runs that removes two false detections (at a door, in two hero recordings) and no
+  real change. It runs before move pairing, which had paired the added stool with one.
+- **Cut thin bridges before clustering.** On an earlier hero recording a two-voxel-thin line of
+  evidence along the bed's outline joined the added stool to the bed (a 1.9 m "stool").
+  Dropping voxels with fewer than 8 neighbours within 5 cm separates them (stool box
+  0.49 m) and changes nothing on the other pairs.
+- **Thresholds chosen on these recordings, and where they break.** The flatness cut (0.15),
+  the neighbour filter (8) and the size ratio for pairing a move (3.0, the backpack's two
+  sightings differed 2.03x in volume) were set after looking at these pairs. Each was
+  checked on every pair; the margins are recorded in DEVLOG.md (for example, 9 neighbours
+  already loses the bottle).
 - **Metric scale from depth, not camera height.** The first real pair never showed the floor;
   the "floor" plane was the mattress, which made a camera-height assumption 29 % off.
 - **Sharpness relative to neighbouring frames.** A plain tiled floor scores about 50 on the
@@ -238,18 +285,27 @@ and keep screens off.
 ## Evaluation
 
 ```bash
-# label each real change by clicking its centre in 2+ frames (triangulated from SfM poses only)
-python eval/annotate.py --out out/bottle --scene bottle --action added --label bottle --epoch B
-python eval/run_eval.py --gt eval/gt/bottle.json --out out/bottle
+# label each real change by clicking the same point on it in 2+ frames
+python eval/annotate.py --out out/ex_bottle --scene bottle --action added --label bottle --epoch B
+python eval/run_eval.py --gt eval/gt/bottle.json --out out/ex_bottle
 ```
+
+Every real change in the six scored pairs was labelled this way (`eval/gt/`). The clicked
+point is triangulated from the camera poses alone, so the labels never see the detector's
+output. When the clicked views are nearly parallel (under 5 degrees apart, as in the
+short-baseline bedroom pairs), triangulation cannot fix the distance along the rays; the
+point is then taken where each click ray meets that recording's reconstructed surface, and
+the label records which method was used. Clicks that disagree by more than 15 px are
+refused.
 
 `run_eval.py` scores both methods: change-level precision and recall (the action must match
 and the centroid lie within 0.3 m), region-level precision and recall, and centroid error.
+Results: [`eval/results/`](eval/results) and the table under Results.
 
 ## Tests
 
 ```bash
-python -m pytest        # 60 tests
+python -m pytest        # 64 tests
 python -m ruff check .
 ```
 
@@ -272,8 +328,13 @@ replanned around it, never through unobserved space), the ROS map export and the
   on these recordings (real changes 0.17-0.80, false patches 0.06-0.13); an object seen
   from one side only would look flat and be rejected.
 - A removed object in front of a region the other recording never measured stays unknown.
-- Scale is approximate (median of monocular metric depth); heights are unreliable when the
-  phone was rolled.
+- Scale is approximate (median of monocular metric depth), and heights are unreliable on
+  some pairs: in the hero recordings the plane found was tilted or was the bed top (an
+  earlier recording measured the 45 cm bed top at 0.2-0.25 m). Positions on the floor plan
+  agree with the hand labels to 6-17 cm.
+- An object put down where another was removed hides the removal (hero shoebox).
+- A next room seen through an open door, 3.5 m away, produced false removals in an earlier
+  hero recording (depth is least accurate there); the final recording keeps the door shut.
 - People and pets are not masked and would show up as changes.
 - Labels come from a 2B model running locally and are sometimes generic or wrong.
 - Open3D's Windows wheel is CPU-only, so fusion and rendering run on the CPU.

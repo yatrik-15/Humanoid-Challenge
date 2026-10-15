@@ -14,98 +14,100 @@
       "action": "removed",
       "label": "footstool",
       "label_confidence": 0.9,
-      "description": "Footstool removed: An object was removed (present only in the before recording). Region: centre at x=-0.58, y=2.86 m (approx.); size about 0.54 x 0.57 x 0.46 m (approx.) (top 1.20 m (approx.) above the z=0 plane).",
+      "description": "Footstool removed: An object was removed (present only in the before recording). Region: centre at x=-0.59, y=2.85 m (approx.); size about 0.54 x 0.53 x 0.44 m (approx.) (top 1.18 m (approx.) above the z=0 plane).",
       "spatial_summary": "The footstool is located on the floor, adjacent to the wall and the corner of the room.",
       "label_check": null,
       "supporting_view_groups": 5,
-      "num_evidence_voxels": 559,
+      "num_evidence_voxels": 507,
       "box": {
         "center": [
-          -0.5759,
-          2.8599,
-          0.9718
+          -0.5889,
+          2.8477,
+          0.9636
         ],
         "extents": [
-          0.536,
-          0.5729,
-          0.4582
+          0.5354,
+          0.5271,
+          0.4419
         ],
-        "yaw_rad": 3.1093,
+        "yaw_rad": 2.8449,
         "corners": [
           [
-            -0.2988,
-            3.1375,
+            -0.2559,
+            3.0215,
             0.7427
           ],
           [
-            -0.2988,
-            3.1375,
-            1.2008
+            -0.2559,
+            3.0215,
+            1.1846
           ],
           [
-            -0.3173,
-            2.5649,
+            -0.41,
+            2.5174,
             0.7427
           ],
           [
-            -0.3173,
-            2.5649,
-            1.2008
+            -0.41,
+            2.5174,
+            1.1846
           ],
           [
-            -0.8346,
-            3.1548,
+            -0.7679,
+            3.178,
             0.7427
           ],
           [
-            -0.8346,
-            3.1548,
-            1.2008
+            -0.7679,
+            3.178,
+            1.1846
           ],
           [
-            -0.853,
-            2.5822,
+            -0.922,
+            2.6739,
             0.7427
           ],
           [
-            -0.853,
-            2.5822,
-            1.2008
+            -0.922,
+            2.6739,
+            1.1846
           ]
         ]
       },
       "centroid": [
-        -0.5759,
-        2.8599,
-        0.9718
+        -0.5889,
+        2.8477,
+        0.9636
       ],
       "views": [
         {
           "epoch": "A",
-          "frame": "A_0027.jpg",
+          "frame": "A_0028.jpg",
           "box_px": [
-            17,
-            553,
-            382,
-            843
+            16,
+            558,
+            415,
+            838
           ],
-          "score": 72242.6,
+          "score": 81834.9,
           "crop": "semantics\\crops\\change00_A.jpg"
         },
         {
           "epoch": "B",
-          "frame": "B_0025.jpg",
+          "frame": "B_0026.jpg",
           "box_px": [
             13,
-            581,
-            371,
-            865
+            589,
+            402,
+            863
           ],
-          "score": 97096.8,
+          "score": 104720.7,
           "crop": "semantics\\crops\\change00_B.jpg"
         }
       ]
     }
   ],
-  "navigation": null
+  "navigation": null,
+  "camera_path_length": null,
+  "camera_path_short": []
 }

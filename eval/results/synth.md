@@ -4,5 +4,5 @@ match radius 0.3; GT frame: {"frame": "gt_world mapped by Umeyama on camera cent
 
 | method                  |   #pred |   #GT |   TP |     P |   R |   centroid err |   region P |   region R |   region err |
 |-------------------------|---------|-------|------|-------|-----|----------------|------------|------------|--------------|
-| visibility-aware (ours) |       3 |     3 |    3 | 1     |   1 |          0.083 |      1     |          1 |        0.064 |
-| naive NN baseline       |      11 |     3 |    3 | 0.273 |   1 |          0.085 |      0.333 |          1 |        0.066 |
+| visibility-aware (ours) |       3 |     3 |    3 | 1     |   1 |          0.099 |      1     |          1 |        0.075 |
+| naive NN baseline       |      13 |     3 |    3 | 0.231 |   1 |          0.109 |      0.286 |          1 |        0.085 |

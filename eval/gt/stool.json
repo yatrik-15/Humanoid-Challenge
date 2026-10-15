@@ -1,0 +1,37 @@
+{
+  "scene": "stool",
+  "frame": "pipeline",
+  "changes": [
+    {
+      "action": "removed",
+      "label": "stool",
+      "centroid": [
+        -0.4935,
+        2.6484,
+        0.992
+      ],
+      "annotation": {
+        "clicks": {
+          "A_0025.jpg": [
+            193.0,
+            695.0
+          ],
+          "A_0034.jpg": [
+            361.0,
+            670.0
+          ],
+          "A_0055.jpg": [
+            719.0,
+            664.0
+          ]
+        },
+        "reproj_err_px": [
+          1.96,
+          7.82,
+          8.57
+        ],
+        "method": "surface"
+      }
+    }
+  ]
+}

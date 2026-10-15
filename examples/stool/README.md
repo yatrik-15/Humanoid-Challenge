@@ -6,11 +6,11 @@ Detected: **0 moved, 1 removed, 0 added**. Regions observed in only one recordin
 
 | id | action | object | label conf. | where (centroid x, y, z) | size / displacement | view groups |
 |---|---|---|---|---|---|---|
-| 0 | removed | footstool | 0.90 | (-0.58, 2.86, 0.97) | 0.54 x 0.57 x 0.46 | 5 |
+| 0 | removed | footstool | 0.90 | (-0.59, 2.85, 0.96) | 0.54 x 0.53 x 0.44 | 5 |
 
 ## Descriptions
 
-- **#0 removed — footstool**: Footstool removed: An object was removed (present only in the before recording). Region: centre at x=-0.58, y=2.86 m (approx.); size about 0.54 x 0.57 x 0.46 m (approx.) (top 1.20 m (approx.) above the z=0 plane). The footstool is located on the floor, adjacent to the wall and the corner of the room.
+- **#0 removed — footstool**: Footstool removed: An object was removed (present only in the before recording). Region: centre at x=-0.59, y=2.85 m (approx.); size about 0.54 x 0.53 x 0.44 m (approx.) (top 1.18 m (approx.) above the z=0 plane). The footstool is located on the floor, adjacent to the wall and the corner of the room.
 
 ## Visuals
 

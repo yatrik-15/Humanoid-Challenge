@@ -9,5 +9,7 @@
   },
   "unknown_evidence_voxels": 66,
   "changes": [],
-  "navigation": null
+  "navigation": null,
+  "camera_path_length": null,
+  "camera_path_short": []
 }

@@ -1,0 +1,57 @@
+{
+  "scene": "walkway",
+  "out_dir": "out\\ex_walkway",
+  "match_radius": 0.3,
+  "gt_frame": {
+    "frame": "pipeline"
+  },
+  "methods": {
+    "visibility-aware (ours)": {
+      "num_pred": 4,
+      "num_gt": 3,
+      "change_TP": 1,
+      "change_precision": 0.25,
+      "change_recall": 0.333,
+      "change_centroid_err": 0.277,
+      "region_pred": 5,
+      "region_gt": 5,
+      "region_TP": 3,
+      "region_precision": 0.6,
+      "region_recall": 0.6,
+      "region_centroid_err": 0.199,
+      "matches": [
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.277
+        }
+      ]
+    },
+    "naive NN baseline": {
+      "num_pred": 10,
+      "num_gt": 3,
+      "change_TP": 2,
+      "change_precision": 0.2,
+      "change_recall": 0.667,
+      "change_centroid_err": 0.178,
+      "region_pred": 11,
+      "region_gt": 5,
+      "region_TP": 4,
+      "region_precision": 0.364,
+      "region_recall": 0.8,
+      "region_centroid_err": 0.178,
+      "matches": [
+        {
+          "pred": 7,
+          "gt": 2,
+          "dist": 0.067
+        },
+        {
+          "pred": 0,
+          "gt": 0,
+          "dist": 0.289
+        }
+      ]
+    }
+  }
+}
